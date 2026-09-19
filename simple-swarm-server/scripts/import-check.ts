@@ -22,6 +22,8 @@ const NAME = /\b(SWARM_[A-Z_0-9]+|talkFirstPending|boardHintText|negotiateKickof
 const problems: string[] = [];
 
 for (const file of files) {
+  /* 扫描器自己不算：它源码里就是这些名字的正则（第一版扫自己报了 4 条假警）。 */
+  if (file === "scripts/import-check.ts") continue;
   const src = readFileSync(file, "utf8");
   const body = src.replace(/process\.env\.(SWARM_[A-Z_0-9]+)/g, "ENV_$1");
   const names = new Set<string>();
