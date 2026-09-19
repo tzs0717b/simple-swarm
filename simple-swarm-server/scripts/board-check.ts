@@ -7,6 +7,7 @@ import {
   boardDeadlineReached,
   boardHintText,
   boardTimeoutText,
+  talkFirstPending,
   negotiateKickoffText,
 } from "../src/board.ts";
 
