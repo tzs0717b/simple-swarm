@@ -27,7 +27,7 @@ import { addressOf } from "../mail.ts";
 import type { Brain, BrainContext, Decision, DecisionResult, StepUsage } from "./brain.ts";
 import type { ToolResult } from "./tools.ts";
 import { SWARMKIT } from "./tools.ts";
-import { fileVersionLines } from "./versions.ts";
+import { deliverReadyLine, fileVersionLines } from "./versions.ts";
 import { SWARM_NEGOTIATE_BOARD } from "../config.ts";
 import { boardHintText } from "../board.ts";
 
@@ -686,6 +686,8 @@ export class LlmBrain implements Brain {
     /* 工作区是 git 版本库（M12）：把「谁动过这个文件、我最新那版是哪个提交」摆到面前。
        2026-09-19 实测：agent 主要用 bash heredoc 写文件，覆盖别人的实现毫无痕迹 —— 现在有版本号了。 */
     const versionLines = fileVersionLines(store.listFiles(swarmId), agent, 6);
+    /* P5：有产出就把「可以交付了」摆到眼前（实测 complete_slice 调用数 = 0 的解法） */
+    const deliverLine = mine !== "（还没认领）" ? deliverReadyLine(mine, store.listFiles(swarmId), agent) : "";
     const board = store.listSlices(swarmId).map((slice) => {
       const who = slice.claimedBy.length > 0 ? slice.claimedBy : "无人";
       return slice.slice + "=" + slice.status + "(" + who + ")";
@@ -711,6 +713,7 @@ export class LlmBrain implements Brain {
         "｜通讯录：" + ctx.agents.filter((name) => name !== agent).map((name) => name + "@" + swarmId + ".swarm").join("、"),
       "- 你的未读邮件：" + unreadMails.length + " 封" + (preview.length > 0 ? "\n" + preview : "（没有未读，别再 read_inbox 了）"),
       mineLine,
+      ...(deliverLine.length > 0 ? [deliverLine] : []),
       ...(versionLines.length > 0
         ? ["- 文件版本（工作区是 git 仓库，系统每步自动提交并署你的名）：\n  " +
             versionLines.join("\n  ") +

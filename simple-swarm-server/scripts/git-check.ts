@@ -22,6 +22,8 @@ import {
 import { WORKSPACE_ROOT } from "../src/config.ts";
 import { EventStore } from "../src/eventstore.ts";
 import { autoShipEvidence, detectHandoffs, fileVersionLines, handoffMailText } from "../src/agent/versions.ts";
+import { deliverReadyLine, looksLikeGreenCheck } from "../src/agent/versions.ts";
+import { NO_TOOL_STREAK_LIMIT, idleNudgeBody } from "../src/agent/versions.ts";
 
 let pass = 0;
 let fail = 0;
@@ -197,6 +199,33 @@ const shipOk = autoShipEvidence({ slice: "s", claimers: [], files: [], checkOk: 
 ok(shipOk.includes("（无人认领）"), "没认领人的片也如实写");
 ok(shipOk.includes("没有任何留档文件"), "没有产出就明说没有产出");
 ok(shipOk.includes("验收脚本：通过"), "过闸的如实写通过");
+
+console.log("");
+console.log("=== 交付时机（P5 纯函数）===");
+ok(looksLikeGreenCheck("bash", "$ python3 verify_p2482.py  -> 退出码 0（161ms）"), "bash 跑绿验收 -> 该点名");
+ok(looksLikeGreenCheck("bash", "$ g++ p2482.cpp -o p2482 && ./p2482 < test_input.txt  -> 退出码 0（1530ms）"), "编译+样例跑绿 -> 该点名");
+ok(!looksLikeGreenCheck("bash", "$ ls -la  -> 退出码 0（22ms）"), "只是 ls -> 不点名（别当噪音）");
+ok(!looksLikeGreenCheck("bash", "$ python3 verify.py  -> 退出码 1（161ms）"), "验收是红的 -> 不点名");
+ok(!looksLikeGreenCheck("write", "$ verify  -> 退出码 0"), "不是 bash 不算绿跑");
+const drLine = deliverReadyLine("主实现", fakeFiles, "amy");
+ok(drLine.includes("主实现"), "可交付行带上片名");
+ok(drLine.includes("complete_slice(slice="), "给出可直接复制的调用");
+ok(drLine.includes("aaa2222"), "带上自己那版的版本号");
+ok(deliverReadyLine("主实现", fakeFiles, "dave") === "", "没产出的人不给这行");
+ok(deliverReadyLine("（还没认领）", fakeFiles, "amy") === "", "没认领片的人不给这行");
+
+console.log("");
+console.log("=== 空转/哑火干预（P6 纯函数）===");
+const idle1 = idleNudgeBody(["甲片", "乙片", "丙片", "丁片"], false, 0, "dave");
+ok(idle1.includes("甲片、乙片、丙片") && !idle1.includes("丁片"), "只报前 3 片，别刷屏");
+ok(idle1.includes("claim_slice"), "没认领 -> 让他 claim_slice（一个动作）");
+const idle2 = idleNudgeBody([], false, 0, "dave");
+ok(idle2.includes("publish_slice"), "没空片 -> 给出两条具体路");
+const idle3 = idleNudgeBody([], true, 0, "dave");
+ok(idle3.includes("还没有任何属于你的产出"), "认领了但零产出 -> 直接点破");
+const idle4 = idleNudgeBody([], true, 3, "dave");
+ok(idle4.includes("complete_slice"), "有产出没交付 -> 催交付");
+ok(NO_TOOL_STREAK_LIMIT === 2, "连续 2 次不调工具才点名（别一惊一乍）");
 
 console.log("（" + String(pass) + " 通过 / " + String(fail) + " 失败）");
 process.exit(fail === 0 ? 0 : 1);

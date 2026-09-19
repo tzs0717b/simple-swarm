@@ -113,3 +113,63 @@ export function autoShipEvidence(input: AutoShipInput): string {
   lines.push(input.checkOk ? "验收脚本：通过 " + note : "验收脚本：未通过 / 未跑 -> " + (note || "（工作区里没有验收脚本）"));
   return lines.join("\n");
 }
+
+/** 刚跑绿的验收（P5）：bash + 退出码 0 + 命令看着像验收 -> 现在就是交付的时机。 */
+export function looksLikeGreenCheck(tool: string, detail: string): boolean {
+  if (tool !== "bash") return false;
+  if (!/退出码 0/.test(detail)) return false;
+  return /verify|test|check|对拍|样例|assert|diff|复检|验收/i.test(detail);
+}
+
+/**
+ * 现场提示里的「你已经可以交付了」那一行（P5）。
+ * 2026-09-19 实测：76 次调用里 complete_slice 被调用 **0 次** —— 不是不敢交，
+ * 是干着干着忘了「交付」这个动作存在。所以在这两个时刻把它摆到眼前：
+ * ① 有产出时（这里）；② 刚把验收跑绿时（runner 的绿跑点名）。
+ */
+export function deliverReadyLine(claim: string, files: FileInfo[], agent: string): string {
+  const mine = files.filter((file) => file.commits.some((commit) => commit.agent === agent));
+  if (mine.length === 0 || !claim || claim === "（还没认领）") return "";
+  const newestMine = mine[0];
+  const myCommits = newestMine.commits.filter((commit) => commit.agent === agent);
+  const sha = myCommits.length > 0 ? myCommits[myCommits.length - 1].commit : "?";
+  return (
+    "- 你认领的「" + claim + "」已经有产出了（" + newestMine.path + " 你写过 " + String(myCommits.length) +
+    " 次，你那版 " + sha + "）。**只要它现在能跑，就交付**：" +
+    'complete_slice(slice="' + claim + '", evidence="做完了：…｜怎么验的：<把命令和输出里的数字原样贴上>｜没做完：…")。' +
+    "交了的片才算产出；没交的，复盘里等于零。"
+  );
+}
+
+/**
+ * 空转 / 哑火时的具体指令（P6）。
+ * 2026-09-19 实测（p2482-p3）：jeanette 15 分钟里 0 认领、0 文件、0 邮件 —— 全程在旁边看；
+ * bill 两次「模型没有调用任何工具」。这两种状态讲道理没用，只能把**下一步那一个动作**塞到脸上。
+ */
+export function idleNudgeBody(freeSlices: string[], hasClaim: boolean, filesTouched: number, agent: string): string {
+  if (!hasClaim && freeSlices.length > 0) {
+    return (
+      agent + "：你到现在**还没有认领任何切片**。板上还没人接的有：" + freeSlices.slice(0, 3).join("、") + "。" +
+      "现在就调 claim_slice 接一片（接完可以接着接第二片），别再读了。"
+    );
+  }
+  if (!hasClaim) {
+    return (
+      agent + "：板上没有空片了。两条路，随便挑一条立刻做：" +
+      "① claim_slice 加入一片正在干的（同一片多人同干是系统鼓励的协作）；" +
+      "② publish_slice 立一片新的（把缺的验收 / 对拍 / 边界用例接过来）。"
+    );
+  }
+  if (filesTouched === 0) {
+    return (
+      agent + "：你认领了切片，但工作区里**还没有任何属于你的产出**。" +
+      "现在就动手写第一个文件或跑第一条命令（系统每步都会自动提交并署你的名，写坏了也能取回）。" +
+      "验收一跑绿就 complete_slice 交付。"
+    );
+  }
+  return agent + "：你已经有产出但还没交付。把手上这片收口：跑一次验收，然后 complete_slice。";
+}
+
+/** 连续几次「模型没有调用任何工具」之后才点名（P6）。 */
+export const NO_TOOL_STREAK_LIMIT = 2;
+

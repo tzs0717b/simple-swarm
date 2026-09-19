@@ -140,6 +140,10 @@ export const SWARM_SLICES = (process.env.SWARM_SLICES ?? "")
  */
 /** 文件换手播报：同一（文件, 上一版作者, 新作者）组合的节流窗口（毫秒）。 */
 export const SWARM_HANDOFF_THROTTLE_MS = Math.max(0, Number(process.env.SWARM_HANDOFF_THROTTLE_MS ?? 120000));
+/** P6：墙钟到这个比例后开始巡检"零贡献的人"，每人最多点一次（0 = 关）。 */
+export const SWARM_IDLE_NUDGE_FRACTION = Math.max(0, Number(process.env.SWARM_IDLE_NUDGE_FRACTION ?? 0.3));
+/** P5：刚跑绿验收时点名催交付，最多点名几次（= 几个 agent 各一次；0 = 关）。 */
+export const SWARM_DELIVER_NUDGE_CAP = Math.max(0, Number(process.env.SWARM_DELIVER_NUDGE_CAP ?? 4));
 /** 收口兜底（B3）：墙钟到这个比例还没交付的片，系统按现状自动入账（0 = 关）。 */
 export const SWARM_AUTOSHIP_FRACTION = Math.max(0, Number(process.env.SWARM_AUTOSHIP_FRACTION ?? 0.9));
 /** 单轮最多播报几次换手（别把邮箱刷爆）。 */

@@ -45,7 +45,7 @@ import { FIX_PREFIX, REVERIFY_PREFIX, isVerificationSlice, reverifyName, verdict
 import type { AgentStop, IncompleteStop, SliceInfo, TraceEventData, TraceType } from "../types.ts";
 import type { Brain, BrainContext, Decision, StepUsage } from "./brain.ts";
 import { sweepChallenges } from "../challenges.ts";
-import { SWARM_GOAL_CHARS, SWARM_BOARD_DEADLINE_FRACTION, SWARM_NEGOTIATE_BOARD, SWARM_RUN_MAX_MS, SWARM_PROTOTYPE_FRACTION, SWARM_INBOX_GATE, SWARM_PROTOTYPE_MIN_BUDGET, SWARM_PROTOTYPE_BUDGET, SWARM_HANDOFF_THROTTLE_MS, SWARM_HANDOFF_MAIL_CAP, SWARM_AUTOSHIP_FRACTION } from "../config.ts";
+import { SWARM_GOAL_CHARS, SWARM_BOARD_DEADLINE_FRACTION, SWARM_NEGOTIATE_BOARD, SWARM_RUN_MAX_MS, SWARM_PROTOTYPE_FRACTION, SWARM_INBOX_GATE, SWARM_PROTOTYPE_MIN_BUDGET, SWARM_PROTOTYPE_BUDGET, SWARM_HANDOFF_THROTTLE_MS, SWARM_HANDOFF_MAIL_CAP, SWARM_AUTOSHIP_FRACTION, SWARM_DELIVER_NUDGE_CAP, SWARM_IDLE_NUDGE_FRACTION } from "../config.ts";
 import { boardDeadlineReached, boardTimeoutText, negotiateKickoffText, resumeKickoffText } from "../board.ts";
 import {
   toolArchive,
@@ -69,7 +69,7 @@ import {
 } from "./tools.ts";
 import { workspaceOf } from "./workspace.ts";
 import { commitStep } from "./gitworkspace.ts";
-import { autoShipEvidence, detectHandoffs, handoffMailText, type Handoff } from "./versions.ts";
+import { NO_TOOL_STREAK_LIMIT, autoShipEvidence, detectHandoffs, deliverReadyLine, handoffMailText, idleNudgeBody, looksLikeGreenCheck, type Handoff } from "./versions.ts";
 import { runWorkspaceChecks } from "./tools.ts";
 import { toolChallenge, toolRespondChallenge, toolRuleChallenge } from "./tools.ts";
 
@@ -212,6 +212,11 @@ export class AgentRunner {
   private shipNudged = 0;
   /* 换手播报（M12-P2）：节流表 + 单轮计数，别把邮箱刷爆 */
   private readonly handoffMailed = new Map<string, number>();
+  /* P5：绿跑点名（每个 agent 最多一次） */
+  private readonly greenNudged = new Set<string>();
+  /* P6：空转巡检（每人一次）+ 连续不调工具计数 */
+  private readonly idleNudged = new Set<string>();
+  private readonly noToolStreak = new Map<string, number>();
   private handoffMailCount = 0;
   private readonly maxBrainErrors: number;
   private readonly fallbackModels: string[];
@@ -508,6 +513,7 @@ export class AgentRunner {
       /* P2：每轮开头扫一遍"被认领但没人动"的片 —— 停滞要有系统动作，不能只靠 agent 自觉 */
       this.stallSweep();
       this.wallClockSweep();
+      this.idleSweep();
       /* 交作业闸 v2（exp-16 复盘）：① 旧版插在循环外，只在开跑瞬间判一次 → 整个 run 里永不触发；
          ② exp-14/15/16 的 complete_slice 调用数都是 0 —— 不是交不出去，是没人尝试：
             旧 evidence 要求「跑了什么命令、看到什么输出」，而片子产物是 SVG/图，凑不出这种证据。
@@ -1419,7 +1425,7 @@ export class AgentRunner {
     if (!boardDeadlineReached(Date.now() - this.boardT0, budget, SWARM_BOARD_DEADLINE_FRACTION)) return;
     this.boardFallback = true;
     const { genericSlices } = await import("../slicer.ts");
-    const names = genericSlices(roster.length);
+    const names = genericSlices(roster.length, this.goalOf());
     for (const name of names) this.store.append({ type: "slice.added", swarmId: this.swarmId, slice: name, by: "system", time: clock() });
     this.mailTeam("【立板超时】系统已用保底切法兜底", boardTimeoutText(names.length), "claim");
     this.appendSystemTrace("system", "协商立板：超时兜底，保底切法架了 " + String(names.length) + " 片");
@@ -1612,6 +1618,108 @@ export class AgentRunner {
    * 工作区版本留档：提交一次 + 落 file.written 事件。
    * 任何失败都只是少一条记录，绝不能打断跑（所以整段吞异常）。
    */
+  /** 连续不调工具（P6/B6）：累计到限额就点一次名，任何一次正常调用都清零。 */
+  private trackNoTool(agent: string, tool: string): void {
+    try {
+      if (tool !== "unknown") {
+        this.noToolStreak.set(agent, 0);
+        return;
+      }
+      const streak = (this.noToolStreak.get(agent) ?? 0) + 1;
+      this.noToolStreak.set(agent, streak);
+      if (streak !== NO_TOOL_STREAK_LIMIT) return;
+      sendMail(this.store, {
+        swarmId: this.swarmId,
+        from: "system",
+        to: [addressOf(agent, this.swarmId)],
+        subject: "【卡住了】你连续 " + String(streak) + " 步没有调用任何工具",
+        body:
+          agent + "：你已经连续 " + String(streak) + " 步没有调用任何工具（模型给了空回复）。" + "\n" +
+          "不要再想、不要输出纯文字：下一个回复**必须**只包含一个工具调用。" + "\n" +
+          "最稳的三个选择：read_inbox（看有没有人给你留言）｜claim_slice（接一片活）｜write（把想到的东西写成文件）。" + "\n" +
+          "写一半也算产出 —— 系统每步自动提交并署你的名。",
+        kind: "verify",
+      });
+      this.appendSystemTrace("system", "哑火点名：" + agent + " 连续 " + String(streak) + " 步没调用工具");
+    } catch (error) {
+      console.error("[runner] 哑火点名失败:", error);
+    }
+  }
+
+  /**
+   * 零贡献巡检（P6）：墙钟过 30% 还没认领、或认领了却一个文件都没碰的人，系统点一次名。
+   * 去中心化口径不变：系统不派活、不做裁判，只把「你现在具体该敲哪个工具」说清楚。
+   */
+  private idleSweep(): void {
+    try {
+      if (SWARM_IDLE_NUDGE_FRACTION <= 0 || SWARM_RUN_MAX_MS <= 0) return;
+      const elapsed = Date.now() - this.wallT0;
+      if (elapsed < SWARM_RUN_MAX_MS * SWARM_IDLE_NUDGE_FRACTION) return;
+      const files = this.store.listFiles(this.swarmId);
+      const claims = this.store.listClaims(this.swarmId);
+      const free = this.store
+        .listSlices(this.swarmId)
+        .filter((info) => info.status !== "completed" && String(info.claimedBy || "") === "")
+        .map((info) => info.slice);
+      const roster = (this.store.getSwarm(this.swarmId)?.agents ?? []).filter((name) => name !== "system");
+      for (const agent of roster) {
+        if (this.idleNudged.has(agent)) continue;
+        const mine = claims.find((claim) => claim.agent === agent);
+        const touched = files.filter((file) => file.commits.some((commit) => commit.agent === agent)).length;
+        if (mine && touched > 0) continue;
+        this.idleNudged.add(agent);
+        const body = idleNudgeBody(free, Boolean(mine), touched, agent);
+        sendMail(this.store, {
+          swarmId: this.swarmId,
+          from: "system",
+          to: [addressOf(agent, this.swarmId)],
+          subject: mine ? "【收口】你有产出/有片但还没交付" : "【点名】你还没有任何贡献",
+          body,
+          kind: "verify",
+        });
+        this.appendSystemTrace(
+          "system",
+          "零贡献巡检：" + agent + "（认领=" + (mine ? "有" : "无") + " 碰过文件=" + String(touched) + "）已点名",
+        );
+      }
+    } catch (error) {
+      console.error("[runner] 零贡献巡检失败:", error);
+    }
+  }
+
+  /**
+   * 绿跑点名（P5）：agent 刚把验收脚本跑绿 —— 这一刻就是交付的时机，系统点一次名。
+   * 每个 agent 一轮最多点一次（默认上限 4 = 全员各一次），免得变成噪音。
+   */
+  private nudgeGreenDelivery(agent: string, tool: string, result: ToolResult): void {
+    try {
+      if (SWARM_DELIVER_NUDGE_CAP <= 0) return;
+      if (this.greenNudged.size >= SWARM_DELIVER_NUDGE_CAP) return;
+      if (this.greenNudged.has(agent)) return;
+      const detail = result.detail ?? "";
+      if (!looksLikeGreenCheck(tool, detail)) return;
+      const claim = this.store.listClaims(this.swarmId).find((item) => item.agent === agent)?.slice;
+      if (!claim) return;
+      this.greenNudged.add(agent);
+      sendMail(this.store, {
+        swarmId: this.swarmId,
+        from: "system",
+        to: [addressOf(agent, this.swarmId)],
+        subject: "【可以交付了】你刚跑绿了：" + detail.slice(0, 60),
+        body:
+          "你刚跑绿了一次验收（" + detail.slice(0, 120) + "）。" + "\n" +
+          "现在就调用 complete_slice 把它交掉 —— 你认领的是「" + claim + "」：" + "\n" +
+          '  complete_slice(slice="' + claim + '", evidence="做完了：…｜怎么验的：<把这次的命令和输出里的数字原样贴上>｜没做完：…")' + "\n" +
+          "不用等别人、也不用再打磨：验收绿了就交，剩下的没做完的部分写进 evidence 就行。" + "\n" +
+          "没交付的片在复盘里等于零产出 —— 这是这一轮最容易犯的错。",
+        kind: "verify",
+      });
+      this.appendSystemTrace("system", "绿跑点名：" + agent + " 的验收跑绿了（" + detail.slice(0, 60) + "），系统催其交付「" + claim.slice(0, 24) + "」");
+    } catch (error) {
+      console.error("[runner] 绿跑点名失败:", error);
+    }
+  }
+
   /**
    * 收口兜底（B3）：墙钟最后一截，把「已认领但没交付」的片按现状入账。
    * 用系统身份直接写 slice.completed（**故意不过验收闸** —— 半成品 + 说清边界 > 零产出），
@@ -1781,6 +1889,8 @@ export class AgentRunner {
     /* 工作区版本留档（M12）：每一步之后由**系统**提交。
        归因靠工作区 diff —— agent 用 bash heredoc 写的文件也跑不掉（B2/B10 的教训）。 */
     this.commitWorkspace(agent, tool, result);
+    this.nudgeGreenDelivery(agent, tool, result);
+    this.trackNoTool(agent, tool);
     this.store.append({
       type: "usage.recorded",
       swarmId: this.swarmId,

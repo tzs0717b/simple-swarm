@@ -3,6 +3,7 @@
  * 跑法：node scripts/board-check.ts
  * 验的是「去掉派工员之后，系统自己那部分」——开工广播文案、立板截止判断、空板提示。
  */
+import { genericSlices, goalDeliverable } from "../src/slicer.ts";
 import {
   boardDeadlineReached,
   boardHintText,
@@ -64,5 +65,20 @@ ok(resume.includes("2 片"), "带上板上真实片数");
 ok(resume.includes("过时信息"), "明说上一轮旧邮件已过时，别重读");
 ok(resume.includes("all@s1.swarm"), "给出群发地址");
 ok(!/SVG|svg|车轮|鹈鹕/.test(resume), "续跑文案不带任务假设");
+console.log("");
+console.log("=== 保底切法（P4：任务无关但贴题）===");
+const GOAL_FIX = "【任务】为洛谷 P2482 写一份可直接提交的 C++ 单文件代码（p2482.cpp），严格模拟规则。";
+ok(goalDeliverable(GOAL_FIX) === "p2482.cpp", "从题面抠出交付件名 p2482.cpp，实得 " + goalDeliverable(GOAL_FIX));
+ok(goalDeliverable("这道题没有点名任何文件名") === "", "抠不到就返回空串（不瞎猜）");
+const fs4 = genericSlices(4, GOAL_FIX);
+ok(fs4.length >= 4, "至少 4 片，实得 " + String(fs4.length));
+ok(fs4.some((x) => x.includes("p2482.cpp")), "保底片里带上了本轮的交付件名");
+ok(!fs4.some((x) => x.includes("造型") || x.includes("像素差") || x.includes("动画")), "不再出现画图题专用措辞");
+ok(fs4.some((x) => x.includes("complete_slice")), "收口片明确点名 complete_slice");
+const fsNoGoal = genericSlices(4);
+ok(fsNoGoal.length >= 4 && !fsNoGoal.some((x) => x.includes("undefined")), "没题面也不炸，退化成通用说法");
+ok(genericSlices(12, GOAL_FIX).length <= 16, "片数上限 16 仍生效");
+ok(genericSlices(4, GOAL_FIX).every((x) => x.length > 12), "每片都是能读懂的一句话");
+
 console.log("\uff08" + String(pass) + " \u901a\u8fc7 / " + String(fail) + " \u5931\u8d25\uff09");
 process.exit(fail === 0 ? 0 : 1);
