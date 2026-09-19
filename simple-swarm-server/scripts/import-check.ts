@@ -43,7 +43,11 @@ for (const file of files) {
   for (const m of body.matchAll(NAMES)) names.add(m[1]);
   for (const name of names) {
     if (name === "SWARM_HOME") continue;
-    const imported = new RegExp("import[^;]*\\b" + name + "\\b[^;]*;", "s").test(raw);
+    /* 作为对象键出现的（env: { SWARM_ID: ctx.swarmId }）不是标识符用法 */
+    if (new RegExp("\\b" + name + "\\s*:").test(body)) continue;
+    /* 把所有 import 语句整段抓出来再查名字：原来那句 import[^;]*\bNAME\b[^;]*; 在跨行/多个 import 挨着时会漏（routes-write.ts 就漏了）。 */
+    const importText = raw.match(/import[\s\S]*?from\s*"[^"]+";/g)?.join(" ") ?? "";
+    const imported = new RegExp("\\b" + name + "\\b").test(importText);
     const declared = new RegExp("(const|let|var|function|class)\\s+" + name + "\\b").test(body);
     const destructured = new RegExp("const\\s*\\{[^}]*\\b" + name + "\\b[^}]*\\}").test(body);
     if (!imported && !declared && !destructured) problems.push(file + " 缺 " + name);
