@@ -7,7 +7,7 @@ import { AgentRunner } from "./agent/runner.ts";
 import { MockBrain } from "./agent/brain.ts";
 import { LlmBrain, PLACEHOLDER_MODELS, availableModels, probeModels } from "./agent/llm.ts";
 import { assignLanes, fetchLanes } from "./agent/keyplan.ts";
-import { LLM_FALLBACK_MODELS } from "./config.ts";
+import { LLM_FALLBACK_MODELS, SWARM_NEGOTIATE_BOARD } from "./config.ts";
 import { LLM_MODEL, MOCK_LLM } from "./config.ts";
 import { releaseSlice, takeSlice } from "./claims.ts";
 import { mailSharedClaimLine } from "./send.ts";
