@@ -400,7 +400,7 @@ export function toolCompleteSlice(ctx: ToolContext, slice: string, evidence = ""
       subject: ctx.agent + " 已交付「" + slice + "」，请核对合并",
       body:
         ctx.agent + " 刚刚交付了你们共干的切片「" + slice + "」。\n" +
-        "请立刻 read 它交付的文件和证据，核对和你手上的部分能不能合上（坐标、命名、动画时序）；合不上就发信说清要改哪一处。",
+        "请立刻 read 它交付的文件和证据，核对和你手上的部分能不能合上（接口、命名、约定、边界）；合不上就发信说清要改哪一处。",
       kind: "system",
     });
     ctx.store.append({ type: "trace.appended", swarmId: ctx.swarmId, event: { swarmId: ctx.swarmId, agent: "system", type: "system", detail: "共用片交付：" + slice + " → 已通知同线 " + line.join("、") + " 核对合并", time: clock() } });
@@ -517,10 +517,8 @@ export function toolBash(ctx: ToolContext, command: string): ToolResult {
      白烧几十分钟 —— 而环境里早就装好了能干同样事的 chromium-browser。要新工具就走邮件找人装。 */
   if (SWARM_BLOCK_INSTALL && INSTALL_PATTERN.test(command)) {
     return refuse(
-      "这条命令被系统挡了：智能体不许自己安装软件。环境里已经装好了：chromium-browser（无头截图，能真渲染 SMIL 动画：" +
-        "chromium-browser --headless --screenshot=out.png --window-size=800,500 --virtual-time-budget=2000 file.svg）、" +
-        "rsvg-convert、ImageMagick（convert / magick）、ffmpeg、python3（PIL / cairosvg / lxml / svglib）。" +
-        "需要别的东西就在邮件里说、让人来装；现在换上面的工具把活干完。",
+        "这条命令被系统挡了：智能体不许自己安装软件。环境里已经装好 python3、ImageMagick、chromium-browser、" +
+          "rsvg-convert、ffmpeg 等常用工具（缺什么就发邮件让人装）；现在换现成的工具把活干完。",
       "被拦：疑似安装命令",
     );
   }

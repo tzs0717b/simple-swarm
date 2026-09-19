@@ -1241,7 +1241,7 @@ export class AgentRunner {
         "先别交付：这一片还没交接给别人，队友不知道有这活、也不知道怎么验收。请先发一封交接信 ——" +
         "收件人写队友地址（或直接群发 all@" + this.swarmId + ".swarm），正文照这个格式三行：" + "\n" +
         "  ① 做了什么：改了哪个文件 / 哪个组 id（别人要能直接找到）" + "\n" +
-        "  ② 怎么验：一条能跑的命令，或肉眼能看的检查点（例如某坐标处应该是车轮中心）" + "\n" +
+        "  ② 怎么验：一条能跑的命令，或肉眼能看的检查点（例如某个函数应该返回什么、某个文件里应该有哪一行、某个数值应该落在什么区间）" + chr(10) +
         "  ③ 风险 / 没做完：哪里可能有问题、哪里偷懒了" + "\n" +
         "发完再 complete_slice。已经交付过的片不会因为这条被卡第二次。",
       detail: "交付被挡：还没发交接信（已交付 " + deliveredMine + " 片 / 已发交接信 " + handedOff + " 封）",
@@ -1374,10 +1374,10 @@ export class AgentRunner {
       const left = Math.max(1, Math.round((budget - used) / 60000));
       const body =
         "【进度提醒】已经跑了 " + String(Math.round(used / 60000)) + " 分钟，还剩 " + String(left) + " 分钟。" + String.fromCharCode(10) + String.fromCharCode(10) +
-        "从这一刻起请不要再开新的部件片，优先做两件事：" + String.fromCharCode(10) +
-        "1. 把已经画好的部件整合进那个单文件集成 SVG —— 没整合的部件等于没做；" + String.fromCharCode(10) +
-        "2. 跑一遍验收脚本，把实测结果写进交付证据，然后 complete_slice 交付。" + String.fromCharCode(10) +
-        "时间到就结束了，没进集成文件的部件全会作废。";
+          "从现在起请不要再开新的大片，优先做两件事：" + String.fromCharCode(10) +
+          "1. 把已经做好的部分整合进你的唯一交付件（工作目录根的那个成品文件）—— 没整合进去的部分等于没做；" + String.fromCharCode(10) +
+          "2. 跑一遍验收脚本，把实测结果写进交付证据，然后 complete_slice 交付。" + String.fromCharCode(10) +
+          "时间到就结束了，没进交付件的东西全会作废。";
       this.mailTeam("【进度提醒】还剩 " + String(left) + " 分钟，请收口", body, "verify");
       this.appendSystemTrace("system", "进度广播：" + String(Math.round(mark * 100)) + "% 墙钟，还剩 " + String(left) + " 分钟");
     }

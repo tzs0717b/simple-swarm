@@ -582,7 +582,7 @@ export class LlmBrain implements Brain {
       "【你的私有工作目录】",
       "路径：" + ctx.workDir,
       "里面只属于你和这个集群，bash/read/write/edit 都锁在里面，**一律写相对路径**（比如 './hello.py'、'./assets/logo.png'）。",
-      "交付物（SVG、脚本、截图等）请直接放在这里 —— 验证时同事会直接来这个目录复现。",
+        "交付物（代码、脚本、图、截图、文档等）请直接放在这里 —— 验证时同事会直接来这个目录复现。",
       "",
       "【可用工具】",
       "- bash：在工作目录里跑命令（ls、python3、playwright、PIL 都在）",
@@ -681,10 +681,10 @@ export class LlmBrain implements Brain {
       "【最新状况】",
       /* 环境说明书（2026-09-17）：实测智能体为了一片"playwright 截图验收"的切片，
          自己去 pip install playwright，白烧几十分钟 —— 而环境里早就装好了能干同样事的工具。 */
-      "- 环境里已经装好的（别自己 install，会被挡）：chromium-browser（无头截图，能真渲染 SMIL 动画：" +
-        "chromium-browser --headless --screenshot=out.png --window-size=800,500 --virtual-time-budget=2000 file.svg）、" +
-        "rsvg-convert、ImageMagick（convert / magick）、ffmpeg、python3（PIL / cairosvg / lxml / svglib）。" +
-        "⚠ cairosvg 不渲染 SMIL 动画，用它做时序校验会得到假结果，要逐帧比对就用 chromium-browser。",
+        "- 环境里已经装好一堆常用工具（python3、ImageMagick、chromium-browser、rsvg-convert、ffmpeg 等），" +
+          "**别自己 install（会被系统挡）**，缺什么就发邮件让人装。",
+        "- 只有做 SVG / 动画任务才看这两句：真渲染用 chromium-browser --headless --screenshot=out.png " +
+          "--window-size=800,500 --virtual-time-budget=2000 file.svg；⚠ cairosvg 不渲染 SMIL 动画，逐帧比对必须用它。非图形任务忽略。",
       "- 你的邮箱：" + me + "｜群发：all@" + swarmId + ".swarm 或 team@" + swarmId + ".swarm" +
         "｜通讯录：" + ctx.agents.filter((name) => name !== agent).map((name) => name + "@" + swarmId + ".swarm").join("、"),
       "- 你的未读邮件：" + unreadMails.length + " 封" + (preview.length > 0 ? "\n" + preview : "（没有未读，别再 read_inbox 了）"),
