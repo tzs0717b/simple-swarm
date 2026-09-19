@@ -27,6 +27,8 @@ import { addressOf } from "../mail.ts";
 import type { Brain, BrainContext, Decision, DecisionResult, StepUsage } from "./brain.ts";
 import type { ToolResult } from "./tools.ts";
 import { SWARMKIT } from "./tools.ts";
+import { SWARM_NEGOTIATE_BOARD } from "../config.ts";
+import { boardHintText } from "../board.ts";
 
 /* ---------- 网关返回的形状（只声明用得到的字段，避免 any） ---------- */
 

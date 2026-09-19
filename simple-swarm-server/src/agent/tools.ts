@@ -13,6 +13,8 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSy
 import path from "node:path";
 import { releaseSlice, takeSlice } from "../claims.ts";
 import { BASH_TIMEOUT_MS, SWARM_BLOCK_INSTALL } from "../config.ts";
+import { SWARM_BOARD_TALK_FIRST, SWARM_NEGOTIATE_BOARD } from "../config.ts";
+import { talkFirstPending } from "../board.ts";
 import type { EventStore } from "../eventstore.ts";
 import { addressOf, localOf } from "../mail.ts";
 import { isRefusal, mailSharedClaimLine, sendMail } from "../send.ts";
@@ -234,6 +236,35 @@ export function looksSameSlice(a: string, b: string): boolean {
   return d <= 2 && d / Math.max(x.length, y.length) <= 0.12;
 }
 export function toolPublishSlice(ctx: ToolContext, slice: string): ToolResult {
+  /* 先商量再挂片（2026-09-19，用户口径）：板还空着时，每个人必须先广播过一次。
+     实测：p2482-diandian 那轮 9 封邮件只有 1 封是 agent 发的，另外三个人各挂各的一片，
+     板子只有 3 片 → 「鼓励交流」完全没发生。这道门把交流变成结构性的。 */
+  if (SWARM_NEGOTIATE_BOARD && SWARM_BOARD_TALK_FIRST && ctx.store.listSlices(ctx.swarmId).length === 0) {
+    const swarm = ctx.store.getSwarm(ctx.swarmId);
+    const roster = (swarm?.agents ?? []).filter((name) => name !== "system");
+    const spoken: string[] = [];
+    for (const name of roster) {
+      const me = name + "@" + ctx.swarmId + ".swarm";
+      const heard = roster.some((other) =>
+        other !== name &&
+        ctx.store
+          .listMailboxMails(other + "@" + ctx.swarmId + ".swarm", "inbox", 0)
+          .some((mail) => mail.from === me),
+      );
+      if (heard) spoken.push(name);
+    }
+    const pending = talkFirstPending(roster, spoken, false, true);
+    if (pending.length > 0 && !pending.includes(ctx.agent)) {
+      return {
+        observation:
+          "先别挂片：板上还是空的，说明这轮的分工还没商量完。" +
+           "目前还没广播过的人是：" + pending.join("、") + "。" +
+           "你可以先把自己的计划 send_mail 给 all@" + ctx.swarmId + ".swarm，然后等他们也说；" +
+           "真的等不动了就先做别的事（比如先写测试脚本），到立板截止系统会兜底。",
+        detail: "发布被拦：协商立板还没完成（缺 " + String(pending.length) + " 人广播）",
+      };
+    }
+  }
   const name = slice.trim().replace(/\s+/g, " ").slice(0, 60);
   if (name.length === 0) {
     return {

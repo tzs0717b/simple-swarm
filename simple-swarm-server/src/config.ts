@@ -82,6 +82,10 @@ export const SWARM_SLICER = (process.env.SWARM_SLICER ?? "1") !== "0";
 /* 协商立板（2026-09-19，用户口径）：去掉派工员，让 agent 自己广播商量分工。
    默认开；关掉退回旧的「/run 时由外部 LLM 派工」。 */
 export const SWARM_NEGOTIATE_BOARD = (process.env.SWARM_NEGOTIATE_BOARD ?? "1") !== "0";
+/* 立板窗口内「先商量再挂片」：板还空着时，必须每个人都广播过一次，publish_slice 才放行。
+   用户口径：让他们先在广播商量计划和分配工作。只挂片不商量，板就变成各占各的。
+   到 SWARM_BOARD_DEADLINE_FRACTION 兜底切法上板后，这道门自动失效 —— 不会死锁。 */
+export const SWARM_BOARD_TALK_FIRST = (process.env.SWARM_BOARD_TALK_FIRST ?? "1") !== "0";
 /* 立板截止（墙钟比例）：到这个点板上还是 0 片 → 系统才用保底切法兜底。 */
 export const SWARM_BOARD_DEADLINE_FRACTION = Number(process.env.SWARM_BOARD_DEADLINE_FRACTION ?? "0.3");
 /* 目标全文给 agent 的字符上限。旧值 120 只够一句话 —— 让它自己立板就必须看全题。 */

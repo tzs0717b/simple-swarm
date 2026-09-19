@@ -37,6 +37,7 @@ export function negotiateKickoffText(swarmId: string, agentCount: number, boardM
     "2. 广播你的计划：send_mail 给 " + all + "，一封说清三件事 —— 我准备做什么、我打算怎么把它切开、我认领哪几片。一次说完，别来回问（商量有时间上限）。",
     "3. 先看别人的广播再定你自己那几片（reply 或者再发一封都行）。允许抢活，但不许两个人做同一件事：同一个文件、同一个功能只该有一个负责人。",
     "4. publish_slice 把你要做的挂到板上（发布即认领）。片名写清「谁做什么 + 什么算完成」，别写「优化一下」这种没法验收的话。",
+    "   ⚠ 在**所有人都广播过一轮**之前，publish_slice 会被挡下来 —— 这不是让你干等，是让你们真的商量一次：先说的人越多，挡得越短。",
     "5. 板上至少要有这四类片，缺一不可：",
     "   · 集成/收口片：把分散的产出整合进唯一交付件并跑通验收；",
     "   · 机械验收片：一条能在命令行跑出数字的断言 + 写死的阈值；",
@@ -68,6 +69,21 @@ export function boardTimeoutText(count: number): string {
 }
 
 /** 立板截止判断：墙钟过了比例阈值就算截止。 */
+/*
+ * 「先商量再挂片」的纯判断：板还空着时，谁还没广播过。
+ * 板一旦有片（含兜底切法架上去的），就返回空数组 → 门失效，绝不卡死。
+ */
+export function talkFirstPending(
+  roster: string[],
+  spoken: string[],
+  boardOpen: boolean,
+  enabled: boolean,
+): string[] {
+  if (!enabled || boardOpen) return [];
+  const said = new Set(spoken);
+  return roster.filter((name) => !said.has(name));
+}
+
 export function boardDeadlineReached(usedMs: number, budgetMs: number, fraction: number): boolean {
   if (budgetMs <= 0) return false;
   return usedMs >= budgetMs * fraction;

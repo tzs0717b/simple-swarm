@@ -46,6 +46,11 @@ ok(boardTimeoutText(11).includes("11"), "\u8d85\u65f6\u6587\u6848\u5e26\u7247\u6
 ok(!/SVG|svg|\u8f66\u8f6e|\u9e48\u9e49/.test(boardHintText(300000) + boardTimeoutText(11)), "\u63d0\u793a/\u8d85\u65f6\u90fd\u6ca1\u6709\u4efb\u52a1\u5047\u8bbe");
 
 console.log("");
-console.log(fail === 0 ? "\u2705 \u5354\u5546\u7acb\u677f\u81ea\u68c0\u5168\u90e8\u901a\u8fc7" : "\u274c \u6709\u5931\u8d25");
+console.log("=== 先商量再挂片（talkFirstPending）===");
+ok(talkFirstPending(["a","b","c","d"], ["a","b","c","d"], false, true).length === 0, "四人都说过 -> 放行");
+ok(talkFirstPending(["a","b","c","d"], ["a"], false, true).length === 3, "只有一人说过 -> 还挡 3 人");
+ok(talkFirstPending(["a","b","c","d"], [], false, true).length === 4, "没人说过 -> 挡 4 人");
+ok(talkFirstPending(["a","b"], [], true, true).length === 0, "板已有片 -> 门自动失效（兜底不会死锁）");
+ok(talkFirstPending(["a","b"], [], false, false).length === 0, "开关关掉 -> 不挡");
 console.log("\uff08" + String(pass) + " \u901a\u8fc7 / " + String(fail) + " \u5931\u8d25\uff09");
 process.exit(fail === 0 ? 0 : 1);

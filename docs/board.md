@@ -39,6 +39,7 @@
 |---|---|---|
 | `SWARM_NEGOTIATE_BOARD` | `1` | 开协商立板；`0` 退回旧的「/run 时外部 LLM 派工」 |
 | `SWARM_BOARD_DEADLINE_FRACTION` | `0.3` | 立板截止（墙钟比例）：到这个点板还空 → 保底兜底 |
+| `SWARM_BOARD_TALK_FIRST` | `1` | 立板窗口内「先商量再挂片」：板还空时，必须人人广播过一次，`publish_slice` 才放行；板一有片（含兜底）就自动失效 |
 | `SWARM_GOAL_CHARS` | `4000` | 目标全文给 agent 的字符上限（旧值 120）|
 | `SWARM_SLICER` | `1` | 旧的派工路径开关（协商模式开着时不生效）|
 
