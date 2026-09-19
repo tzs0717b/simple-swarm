@@ -140,6 +140,8 @@ export const SWARM_SLICES = (process.env.SWARM_SLICES ?? "")
  */
 /** 文件换手播报：同一（文件, 上一版作者, 新作者）组合的节流窗口（毫秒）。 */
 export const SWARM_HANDOFF_THROTTLE_MS = Math.max(0, Number(process.env.SWARM_HANDOFF_THROTTLE_MS ?? 120000));
+/** 收口兜底（B3）：墙钟到这个比例还没交付的片，系统按现状自动入账（0 = 关）。 */
+export const SWARM_AUTOSHIP_FRACTION = Math.max(0, Number(process.env.SWARM_AUTOSHIP_FRACTION ?? 0.9));
 /** 单轮最多播报几次换手（别把邮箱刷爆）。 */
 export const SWARM_HANDOFF_MAIL_CAP = Math.max(0, Number(process.env.SWARM_HANDOFF_MAIL_CAP ?? 12));
 

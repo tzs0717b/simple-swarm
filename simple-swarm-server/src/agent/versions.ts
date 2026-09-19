@@ -83,3 +83,33 @@ export function fileVersionLines(files: FileInfo[], agent: string, limit = 6): s
   return lines;
 }
 
+export interface AutoShipInput {
+  slice: string;
+  claimers: string[];
+  files: FileInfo[];
+  checkOk: boolean;
+  checkNote: string;
+}
+
+/**
+ * 收口兜底的交付证据（B3）。
+ * 两轮实测：产物明明能编译、测试脚本也真跑起来了，但**没有 agent 调用 complete_slice** —— 交付率 0。
+ * 半成品 + 说清边界 > 零产出，所以墙钟最后一截由系统按现状入账，并把当时的工作区状态写进证据。
+ */
+export function autoShipEvidence(input: AutoShipInput): string {
+  const lines: string[] = [];
+  lines.push("【系统自动交付】墙钟到点，认领人没有调用 complete_slice —— 系统按现状入账（未经 agent 确认）。");
+  lines.push("认领人：" + (input.claimers.length > 0 ? input.claimers.join("、") : "（无人认领）"));
+  if (input.files.length > 0) {
+    lines.push("工作区文件 " + String(input.files.length) + " 个（最后写者 + 版本号）：");
+    for (const file of input.files.slice(0, 8)) {
+      lines.push("  " + file.path + " ← " + (file.lastAgent || "?") + " " + (file.lastCommit || "?"));
+    }
+    if (input.files.length > 8) lines.push("  …还有 " + String(input.files.length - 8) + " 个");
+  } else {
+    lines.push("工作区没有任何留档文件（这一片没有产出）。");
+  }
+  const note = input.checkNote.length > 220 ? input.checkNote.slice(0, 220) + "…" : input.checkNote;
+  lines.push(input.checkOk ? "验收脚本：通过 " + note : "验收脚本：未通过 / 未跑 -> " + (note || "（工作区里没有验收脚本）"));
+  return lines.join("\n");
+}

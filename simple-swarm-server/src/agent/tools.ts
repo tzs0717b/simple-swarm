@@ -366,7 +366,7 @@ export function toolReleaseSlice(ctx: ToolContext, slice: string): ToolResult {
  *  所以改成：脚本跑不起来、或报 FAIL（非 0 退出），交付直接打回；输出挂进证据，让人看得见。 */
 const CHECK_SCRIPT_RE = /^(check|verify|test)[a-z0-9_-]*\.py$|^[a-z0-9_-]*_check\.py$/i;
 
-function runWorkspaceChecks(swarmId: string): { ok: boolean; note: string } {
+export function runWorkspaceChecks(swarmId: string): { ok: boolean; note: string } {
   const dir = workspaceOf(swarmId);
   let names: string[] = [];
   try {

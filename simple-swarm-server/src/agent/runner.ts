@@ -45,7 +45,7 @@ import { FIX_PREFIX, REVERIFY_PREFIX, isVerificationSlice, reverifyName, verdict
 import type { AgentStop, IncompleteStop, SliceInfo, TraceEventData, TraceType } from "../types.ts";
 import type { Brain, BrainContext, Decision, StepUsage } from "./brain.ts";
 import { sweepChallenges } from "../challenges.ts";
-import { SWARM_GOAL_CHARS, SWARM_BOARD_DEADLINE_FRACTION, SWARM_NEGOTIATE_BOARD, SWARM_RUN_MAX_MS, SWARM_PROTOTYPE_FRACTION, SWARM_INBOX_GATE, SWARM_PROTOTYPE_MIN_BUDGET, SWARM_PROTOTYPE_BUDGET, SWARM_HANDOFF_THROTTLE_MS, SWARM_HANDOFF_MAIL_CAP } from "../config.ts";
+import { SWARM_GOAL_CHARS, SWARM_BOARD_DEADLINE_FRACTION, SWARM_NEGOTIATE_BOARD, SWARM_RUN_MAX_MS, SWARM_PROTOTYPE_FRACTION, SWARM_INBOX_GATE, SWARM_PROTOTYPE_MIN_BUDGET, SWARM_PROTOTYPE_BUDGET, SWARM_HANDOFF_THROTTLE_MS, SWARM_HANDOFF_MAIL_CAP, SWARM_AUTOSHIP_FRACTION } from "../config.ts";
 import { boardDeadlineReached, boardTimeoutText, negotiateKickoffText, resumeKickoffText } from "../board.ts";
 import {
   toolArchive,
@@ -69,7 +69,8 @@ import {
 } from "./tools.ts";
 import { workspaceOf } from "./workspace.ts";
 import { commitStep } from "./gitworkspace.ts";
-import { detectHandoffs, handoffMailText, type Handoff } from "./versions.ts";
+import { autoShipEvidence, detectHandoffs, handoffMailText, type Handoff } from "./versions.ts";
+import { runWorkspaceChecks } from "./tools.ts";
 import { toolChallenge, toolRespondChallenge, toolRuleChallenge } from "./tools.ts";
 
 export interface RunnerOptions {
@@ -554,6 +555,10 @@ export class AgentRunner {
             }
           }
           this.appendSystemTrace("system", "交作业闸②：墙钟 " + Math.round(SWARM_SHIP_FINAL_FRACTION * 100) + "%，点名 " + openNow.length + " 个未交付的认领人");
+        } else if (this.shipNudged === 2 && elapsedMs >= SWARM_RUN_MAX_MS * SWARM_AUTOSHIP_FRACTION) {
+          /* 收口兜底（B3）：两次喊话之后还没人交付 -> 系统按现状入账，别让整轮的活白干 */
+          this.shipNudged = 3;
+          this.autoShipBoard();
         }
       }
 
@@ -1607,6 +1612,58 @@ export class AgentRunner {
    * 工作区版本留档：提交一次 + 落 file.written 事件。
    * 任何失败都只是少一条记录，绝不能打断跑（所以整段吞异常）。
    */
+  /**
+   * 收口兜底（B3）：墙钟最后一截，把「已认领但没交付」的片按现状入账。
+   * 用系统身份直接写 slice.completed（**故意不过验收闸** —— 半成品 + 说清边界 > 零产出），
+   * 证据里带上工作区 git 版本状态和验收脚本的真实结果，下一轮接着干时不用从零开始。
+   */
+  private autoShipBoard(): void {
+    try {
+      const board = this.store.listSlices(this.swarmId).filter((info) => info.status === "claimed");
+      if (board.length === 0) return;
+      const files = this.store.listFiles(this.swarmId);
+      const gate = runWorkspaceChecks(this.swarmId);
+      const shipped: string[] = [];
+      for (const info of board) {
+        const claimers = this.store
+          .listClaims(this.swarmId)
+          .filter((claim) => claim.slice === info.slice)
+          .map((claim) => claim.agent);
+        const evidence = autoShipEvidence({
+          slice: info.slice,
+          claimers,
+          files,
+          checkOk: gate.ok,
+          checkNote: gate.note,
+        });
+        this.store.append({
+          type: "slice.completed",
+          swarmId: this.swarmId,
+          slice: info.slice,
+          agent: "system",
+          evidence,
+          time: clock(),
+        });
+        shipped.push(info.slice);
+      }
+      if (shipped.length === 0) return;
+      const list = shipped.map((name) => "  - " + name.slice(0, 40)).join("\n");
+      this.mailTeam(
+        "【系统自动交付】" + String(shipped.length) + " 片按现状入账",
+        "系统在墙钟最后 " + String(Math.round((1 - SWARM_AUTOSHIP_FRACTION) * 100)) + "% 把没人交付的片按现状入了账：" + "\n" + list + "\n\n" +
+          "这些片不是 agent 确认完成的，证据由系统按当时的工作区写（git 版本 + 验收脚本结果）。" + "\n" +
+          "下一轮接着干的人：先 read_inbox 看这些交付，别从零开始；哪一片其实是半成品，就在广播里说清还差什么。",
+        "verify",
+      );
+      this.appendSystemTrace(
+        "system",
+        "收口兜底：墙钟 " + Math.round(SWARM_AUTOSHIP_FRACTION * 100) + "%，系统自动交付 " + String(shipped.length) + " 片",
+      );
+    } catch (error) {
+      console.error("[runner] 收口兜底失败:", error);
+    }
+  }
+
   private commitWorkspace(agent: string, tool: string, result: ToolResult): void {
     try {
       const goal = this.store.getSwarm(this.swarmId)?.goal ?? "";

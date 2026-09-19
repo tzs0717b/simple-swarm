@@ -21,7 +21,7 @@ import {
 } from "../src/agent/gitworkspace.ts";
 import { WORKSPACE_ROOT } from "../src/config.ts";
 import { EventStore } from "../src/eventstore.ts";
-import { detectHandoffs, fileVersionLines, handoffMailText } from "../src/agent/versions.ts";
+import { autoShipEvidence, detectHandoffs, fileVersionLines, handoffMailText } from "../src/agent/versions.ts";
 
 let pass = 0;
 let fail = 0;
@@ -178,6 +178,25 @@ ok(vlines.length === 1 && vlines[0].includes("你写过 1 次"), "现场行：bo
 ok(vlines[0].includes("bbb1111"), "现场行：带上自己那版的版本号");
 ok(vlines[0].includes("别人动过 2 次"), "现场行：别人动过 2 次");
 ok(fileVersionLines(fakeFiles, "dave")[0].includes("你没写过"), "没写过的人看到「你没写过」");
+
+console.log("");
+console.log("=== 收口兜底证据（B3 纯函数）===");
+const shipText = autoShipEvidence({
+  slice: "主实现",
+  claimers: ["amy", "bob"],
+  files: fakeFiles,
+  checkOk: false,
+  checkNote: "test.sh 退出码 124（30 秒超时）",
+});
+ok(shipText.includes("【系统自动交付】"), "证据开头就标明是系统自动交付");
+ok(shipText.includes("未经 agent 确认"), "证据说明未经 agent 确认");
+ok(shipText.includes("amy、bob"), "证据带上认领人");
+ok(shipText.includes("p2482.cpp") && shipText.includes("aaa2222"), "证据带上文件与最后写者的版本号");
+ok(shipText.includes("test.sh 退出码 124"), "证据带上验收脚本的真实结果");
+const shipOk = autoShipEvidence({ slice: "s", claimers: [], files: [], checkOk: true, checkNote: "全部通过" });
+ok(shipOk.includes("（无人认领）"), "没认领人的片也如实写");
+ok(shipOk.includes("没有任何留档文件"), "没有产出就明说没有产出");
+ok(shipOk.includes("验收脚本：通过"), "过闸的如实写通过");
 
 console.log("（" + String(pass) + " 通过 / " + String(fail) + " 失败）");
 process.exit(fail === 0 ? 0 : 1);
