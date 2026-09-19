@@ -661,13 +661,27 @@ export class LlmBrain implements Brain {
         (mail) =>
           "    · " +
           mail.id +
-          " 来自 " +
+          " [" + mail.time + "] 来自 " +
           mail.from.replace("@" + swarmId + ".swarm", "") +
           "：" +
           clip(mail.body.replace(/\s+/g, " "), 60),
       )
       .join("\n");
     const mine = store.listClaims(swarmId).find((claim) => claim.agent === agent)?.slice ?? "（还没认领）";
+    const allSlices = store.listSlices(swarmId);
+    const freeSlices = allSlices.filter((slice) => slice.claimedBy.length === 0 && slice.status !== "completed");
+    /* 2026-09-19 续跑实测：手上没片 + 板上也没空片时，模型会「situation stuck」原地打转
+       （整轮 50 次调用全在重读旧邮件和旧代码）。这种状态该怎么办，直接写死在现场提示里。 */
+    const mineLine =
+      mine !== "（还没认领）"
+        ? "- 你认领的切片：" + mine
+        : allSlices.length === 0
+          ? "- 你认领的切片：（还没认领 —— 板是空的，publish_slice 发布你要做的）"
+          : freeSlices.length > 0
+            ? "- 你还没认领任何片 —— 板上 " + String(freeSlices.length) + " 片没人接（" + freeSlices.map((slice) => slice.slice).join("、") + "），挑一片 claim_slice 接掉"
+            : "- 你还没认领任何片，而且板上 " + String(allSlices.length) + " 片都有人了。**别原地打转读文件**：" +
+              "claim_slice 加入一片（同一片多人同干，系统鼓励这种协作），" +
+              "或者 publish_slice 立一片新的（把那片缺的验收 / 对拍 / 边界用例接过来）。";
     const board = store.listSlices(swarmId).map((slice) => {
       const who = slice.claimedBy.length > 0 ? slice.claimedBy : "无人";
       return slice.slice + "=" + slice.status + "(" + who + ")";
@@ -692,7 +706,7 @@ export class LlmBrain implements Brain {
       "- 你的邮箱：" + me + "｜群发：all@" + swarmId + ".swarm 或 team@" + swarmId + ".swarm" +
         "｜通讯录：" + ctx.agents.filter((name) => name !== agent).map((name) => name + "@" + swarmId + ".swarm").join("、"),
       "- 你的未读邮件：" + unreadMails.length + " 封" + (preview.length > 0 ? "\n" + preview : "（没有未读，别再 read_inbox 了）"),
-      "- 你认领的切片：" + mine,
+      mineLine,
       "- 看板：" + (board.length > 0 ? board.join("，") : "（空的 —— 你要做什么就 publish_slice 发布上去）"),
       "- 已收工的人：" + (done.length > 0 ? done.join("、") : "（还没有）"),
       "- 集群花费：$" + (swarm?.cost ?? 0).toFixed(4) + " / 预算 $" + (swarm?.budget ?? 0).toFixed(2),

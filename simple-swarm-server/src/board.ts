@@ -94,3 +94,29 @@ export function boardDeadlineReached(usedMs: number, budgetMs: number, fraction:
   if (budgetMs <= 0) return false;
   return usedMs >= budgetMs * fraction;
 }
+
+
+/* 续跑广播（2026-09-19 实测）：续跑时如果系统一句话不说，agent 只会看到上一轮的
+   旧未读邮件（内容是「板子是空的，你们自己立板」），于是整轮在原地打转 —— 那轮
+   50 次调用里 thinking 47 / read 21 / read_inbox 13，0 广播 0 认领 0 写文件 0 交付。
+   所以续跑必须显式广播：别再立板、别再重读旧邮件、手上没片就加入或立新片。 */
+export function resumeKickoffText(swarmId: string, total: number, completed: number, free: number): string {
+  const all = "all@" + swarmId + ".swarm";
+  return [
+    "【续跑：这一轮接着上一轮干 —— 不要再立板，也不要再重读上一轮的旧邮件】",
+    "",
+    "板上已经有 " + String(total) + " 片（" + String(completed) + " 片已交付，" + String(free) + " 片还没人接）。",
+    "上一轮那些「分工计划」邮件是**过时信息**，已经没用了，别为它花轮次。",
+    "",
+    "这一轮每人只做两件事：",
+    "1. 手上没片的人：立刻 claim_slice —— 有空片就接空片；没有空片就**加入**一个已有片",
+    "   （同一片多人同干是允许且鼓励的：一起写，或专门去补那片缺的验收 / 对拍 / 边界用例）；",
+    "   实在没得加入就 publish_slice 立一片新的。**不要**只读文件打转。",
+    "2. 手上有片的人：直接推进，做完就跑验收、把实测输出写进 complete_slice 的证据。",
+    "",
+    "墙钟 60% / 80% 系统还会提醒收口；时间到就结束，没交付的活等于没做。",
+    "",
+    "有异议就在广播里说：send_mail 给 " + all + "。",
+  ].join("\n");
+}
+

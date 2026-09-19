@@ -9,6 +9,7 @@ import {
   boardTimeoutText,
   talkFirstPending,
   negotiateKickoffText,
+  resumeKickoffText,
 } from "../src/board.ts";
 
 let pass = 0;
@@ -53,5 +54,15 @@ ok(talkFirstPending(["a","b","c","d"], ["a"], false, true).length === 3, "只有
 ok(talkFirstPending(["a","b","c","d"], [], false, true).length === 4, "没人说过 -> 挡 4 人");
 ok(talkFirstPending(["a","b"], [], true, true).length === 0, "板已有片 -> 门自动失效（兜底不会死锁）");
 ok(talkFirstPending(["a","b"], [], false, false).length === 0, "开关关掉 -> 不挡");
+
+console.log("");
+console.log("=== 续跑广播（resumeKickoffText）===");
+const resume = resumeKickoffText("s1", 2, 0, 0);
+ok(resume.includes("续跑"), "标题点明这是续跑");
+ok(resume.includes("claim_slice"), "没片的人被明确要求 claim_slice 加入/接活");
+ok(resume.includes("2 片"), "带上板上真实片数");
+ok(resume.includes("过时信息"), "明说上一轮旧邮件已过时，别重读");
+ok(resume.includes("all@s1.swarm"), "给出群发地址");
+ok(!/SVG|svg|车轮|鹈鹕/.test(resume), "续跑文案不带任务假设");
 console.log("\uff08" + String(pass) + " \u901a\u8fc7 / " + String(fail) + " \u5931\u8d25\uff09");
 process.exit(fail === 0 ? 0 : 1);

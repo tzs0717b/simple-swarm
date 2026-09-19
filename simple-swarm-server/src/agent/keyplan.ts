@@ -193,11 +193,23 @@ export function assignLanes(agents: string[], lanes: Lane[]): Map<string, Assign
 }
 
 /** 终端/追踪用的一句话概述 */
-export function describeLanes(assign: Map<string, Assignment>): string {
+export function describeLanes(assign: Map<string, Assignment>, pins: Record<string, string> = {}): string {
   const parts: string[] = [];
+  const seen = new Set<string>();
   for (const [agent, a] of assign) {
+    seen.add(agent);
+    /* 钉死模型的 agent 根本不走车道（runner 里 laneAssign 对它无效），
+       照搬车道表会让 UI 显示一个他根本没用的模型 —— 直接报实际用的那个。 */
+    const pinned = pins[agent];
+    if (pinned) {
+      parts.push(agent + "=" + pinned + "（钉死）");
+      continue;
+    }
     const head = a.queue[0];
     parts.push(agent + "-" + head.providerName + "/" + head.model + (head.activeKeys > 1 ? "(" + head.activeKeys + "key)" : ""));
+  }
+  for (const [agent, model] of Object.entries(pins)) {
+    if (!seen.has(agent)) parts.push(agent + "=" + model + "（钉死）");
   }
   return parts.join("  ");
 }

@@ -46,7 +46,7 @@ import type { AgentStop, IncompleteStop, SliceInfo, TraceEventData, TraceType } 
 import type { Brain, BrainContext, Decision, StepUsage } from "./brain.ts";
 import { sweepChallenges } from "../challenges.ts";
 import { SWARM_GOAL_CHARS, SWARM_BOARD_DEADLINE_FRACTION, SWARM_NEGOTIATE_BOARD, SWARM_RUN_MAX_MS, SWARM_PROTOTYPE_FRACTION, SWARM_INBOX_GATE, SWARM_PROTOTYPE_MIN_BUDGET, SWARM_PROTOTYPE_BUDGET } from "../config.ts";
-import { boardDeadlineReached, boardTimeoutText, negotiateKickoffText } from "../board.ts";
+import { boardDeadlineReached, boardTimeoutText, negotiateKickoffText, resumeKickoffText } from "../board.ts";
 import {
   toolArchive,
   toolBash,
@@ -455,7 +455,8 @@ export class AgentRunner {
       const lanes = await probeLanes(await fetchLanes());
       this.laneAssign = assignLanes(roster, lanes);
       this.laneStep.clear();
-      if (this.laneAssign.size > 0) {
+      const anyPinned = roster.some((name) => this.agentModels[name]);
+      if (this.laneAssign.size > 0 || anyPinned) {
         this.store.append({
           type: "trace.appended",
           event: {
@@ -464,7 +465,7 @@ export class AgentRunner {
             time: clock(),
             agent: "system",
             type: "system",
-            detail: "车道分配（优质优先，一家一个 agent）：" + describeLanes(this.laneAssign),
+            detail: (anyPinned && this.laneAssign.size === 0 ? "模型已钉死（不走车道分配）：" : "车道分配（优质优先，一家一个 agent）：") + describeLanes(this.laneAssign, this.agentModels),
             ms: 1,
             status: "ok",
           },
@@ -1374,7 +1375,23 @@ export class AgentRunner {
   private async negotiationGate(roster: string[]): Promise<void> {
     if (!SWARM_NEGOTIATE_BOARD || this.boardFallback) return;
     if (this.boardT0 === 0) this.boardT0 = Date.now();
-    if (this.store.listSlices(this.swarmId).length > 0) return;
+    /* 续跑（板上已经有片）：立板阶段已经过去 —— 但**不能静默 return**：
+       续跑不广播任何新指令时，agent 只会抱着上一轮的旧邮件原地打转（实测那轮 50 次
+       调用 0 广播 0 认领 0 写文件 0 交付，白烧 $1.37）。 */
+    const existing = this.store.listSlices(this.swarmId);
+    if (existing.length > 0) {
+      if (!this.resumeAnnounced) {
+        this.resumeAnnounced = true;
+        const doneCount = existing.filter((slice) => slice.status === "completed").length;
+        const freeCount = existing.filter((slice) => slice.claimedBy.length === 0 && slice.status !== "completed").length;
+        this.mailTeam("【续跑】接着上一轮干，别再立板", resumeKickoffText(this.swarmId, existing.length, doneCount, freeCount), "claim");
+        this.appendSystemTrace(
+          "system",
+          "续跑：板上已有 " + String(existing.length) + " 片（" + String(doneCount) + " 已交付），跳过立板并广播续跑指令",
+        );
+      }
+      return;
+    }
     const budget = SWARM_RUN_MAX_MS > 0 ? SWARM_RUN_MAX_MS : SWARM_PROTOTYPE_BUDGET * 60000;
     const boardMs = Math.max(60000, Math.round(budget * SWARM_BOARD_DEADLINE_FRACTION));
     if (!this.boardKickoff) {
