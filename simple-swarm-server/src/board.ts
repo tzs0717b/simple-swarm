@@ -79,15 +79,24 @@ export function boardTimeoutText(count: number): string {
  * 「先商量再挂片」的纯判断：板还空着时，谁还没广播过。
  * 板一旦有片（含兜底切法架上去的），就返回空数组 → 门失效，绝不卡死。
  */
+/** 立板窗口过这个比例后，协商闸降级（只认有没有人说过，不再要求全员）。 */
+export const SWARM_TALK_DOWNGRADE_FRACTION = Math.max(0, Math.min(1, Number(process.env.SWARM_TALK_DOWNGRADE_FRACTION ?? 0.6)));
+
 export function talkFirstPending(
   roster: string[],
   spoken: string[],
   boardOpen: boolean,
   enabled: boolean,
+  boardFraction = 0,
 ): string[] {
   if (!enabled || boardOpen) return [];
   const said = new Set(spoken);
-  return roster.filter((name) => !said.has(name));
+  const pending = roster.filter((name) => !said.has(name));
+  /* 2026-09-19 实测（p2482-p3/p4）：闸要求**全员**广播过才放行 —— 两轮都是一个从头到尾
+     没说话的 agent 把另外三个人的 5 分钟一起锁死，板一直空，最后靠保底切法兜底。
+     立板窗口过 60% 就降级：已经有人说过，就让说过的人先干；只有「一个人都没说」才继续挡。 */
+  if (boardFraction >= SWARM_TALK_DOWNGRADE_FRACTION && pending.length < roster.length) return [];
+  return pending;
 }
 
 export function boardDeadlineReached(usedMs: number, budgetMs: number, fraction: number): boolean {

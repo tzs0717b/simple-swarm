@@ -80,5 +80,14 @@ ok(fsNoGoal.length >= 4 && !fsNoGoal.some((x) => x.includes("undefined")), "没�
 ok(genericSlices(12, GOAL_FIX).length <= 16, "片数上限 16 仍生效");
 ok(genericSlices(4, GOAL_FIX).every((x) => x.length > 12), "每片都是能读懂的一句话");
 
+console.log("");
+console.log("=== 协商闸过半降级（P7-a）===");
+ok(talkFirstPending(["a","b","c","d"], ["a"], false, true, 0).length === 3, "窗口没过半：照旧挡（还缺 3 人）");
+ok(talkFirstPending(["a","b","c","d"], ["a"], false, true, 0.7).length === 0, "过半且有人说过 -> 放行（别再锁全队）");
+ok(talkFirstPending(["a","b","c","d"], [], false, true, 0.7).length === 4, "过半但一个人都没说 -> 继续挡（总得有人起个头）");
+ok(talkFirstPending(["a","b","c","d"], ["a","b","c"], false, true, 0.7).length === 0, "多数人说过 -> 放行");
+ok(talkFirstPending(["a","b"], ["a","b"], false, true, 0).length === 0, "全员说过 -> 照常放行");
+ok(talkFirstPending(["a","b"], [], true, true, 0).length === 0, "板已开 -> 闸不生效");
+
 console.log("\uff08" + String(pass) + " \u901a\u8fc7 / " + String(fail) + " \u5931\u8d25\uff09");
 process.exit(fail === 0 ? 0 : 1);

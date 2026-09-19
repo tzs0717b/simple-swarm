@@ -28,6 +28,8 @@ export interface ToolContext {
   swarmId: string;
   /** 裸名字（peliscout）—— 地址由工具自己拼 */
   agent: string;
+  /** 立板窗口已过去的比例（0..1）—— 协商闸过半降级用；自检脚本可以不传 */
+  boardFraction?: number;
 }
 
 export interface ToolResult {
@@ -253,7 +255,7 @@ export function toolPublishSlice(ctx: ToolContext, slice: string): ToolResult {
       );
       if (heard) spoken.push(name);
     }
-    const pending = talkFirstPending(roster, spoken, false, true);
+    const pending = talkFirstPending(roster, spoken, false, true, ctx.boardFraction ?? 0);
     /* 第一版写成 pending.length > 0 && !pending.includes(ctx.agent)，变成「没广播的人可以挂片、广播过的人被拦」，实测一次都没拦到。只要还有人没广播，就必须挡。 */
     if (pending.length > 0) {
       return {
@@ -261,7 +263,10 @@ export function toolPublishSlice(ctx: ToolContext, slice: string): ToolResult {
           "先别挂片：板上还是空的，说明这轮的分工还没商量完。" +
            "目前还没广播过的人是：" + pending.join("、") + "。" +
            "你可以先把自己的计划 send_mail 给 all@" + ctx.swarmId + ".swarm，然后等他们也说；" +
-           "真的等不动了就先做别的事（比如先写测试脚本），到立板截止系统会兜底。",
+           "真的等不动了就先做别的事（比如先写测试脚本），到立板截止系统会兜底。" +
+          ((ctx.boardFraction ?? 0) >= 0.6
+            ? "（立板窗口已过半：只要**有人**说过话，这条闸就不该再挡你们了 —— 你随时可以再试一次 publish_slice。）"
+            : ""),
         detail: "发布被拦：协商立板还没完成（缺 " + String(pending.length) + " 人广播）",
       };
     }

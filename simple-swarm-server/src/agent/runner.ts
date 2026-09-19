@@ -68,7 +68,7 @@ import {
   type ToolResult,
 } from "./tools.ts";
 import { workspaceOf } from "./workspace.ts";
-import { commitStep } from "./gitworkspace.ts";
+import { commitStep, headSha } from "./gitworkspace.ts";
 import { NO_TOOL_STREAK_LIMIT, autoShipEvidence, detectHandoffs, deliverReadyLine, handoffMailText, idleNudgeBody, looksLikeGreenCheck, type Handoff } from "./versions.ts";
 import { runWorkspaceChecks } from "./tools.ts";
 import { toolChallenge, toolRespondChallenge, toolRuleChallenge } from "./tools.ts";
@@ -210,6 +210,8 @@ export class AgentRunner {
   private readonly independentRecheckOn: boolean;
   /** 交作业闸只喊一次 */
   private shipNudged = 0;
+  /* 续跑广播只喊一次（历史遗留：用了但没声明，靠 JS 宽容没炸） */
+  private resumeAnnounced = false;
   /* 换手播报（M12-P2）：节流表 + 单轮计数，别把邮箱刷爆 */
   private readonly handoffMailed = new Map<string, number>();
   /* P5：绿跑点名（每个 agent 最多一次） */
@@ -604,7 +606,8 @@ export class AgentRunner {
           /* 被按停的人手上的活也要退回去 —— 别让一个上限把切片一起锁死 */
           this.releaseClaims(agent, "达到发信上限 " + mailCap + " 封");
           const capped = toolDone(
-            { store: this.store, swarmId: this.swarmId, agent },
+            { store: this.store,
+      boardFraction: SWARM_RUN_MAX_MS > 0 ? Math.min(1, (Date.now() - this.boardT0) / Math.max(1, SWARM_RUN_MAX_MS * SWARM_BOARD_DEADLINE_FRACTION)) : 0, swarmId: this.swarmId, agent },
             "已达到发信上限 " + mailCap + " 封，主动收工",
             "被发信上限按停，不算交付完成",
             "mail-cap",
@@ -742,6 +745,7 @@ export class AgentRunner {
               : stoppedBy === "brain-error"
                 ? "有 agent 因模型异常被放弃"
                 : "没有可用 agent";
+    this.freezeWorkspace();
     this.appendSystemTrace(
       "system",
       "本轮跑完：" +
@@ -1369,11 +1373,7 @@ export class AgentRunner {
       body,
       kind: "question",
     });
-    this.store.append({
-      type: "trace.appended",
-      swarmId: this.swarmId,
-      event: { swarmId: this.swarmId, agent: "system", type: "system", detail: "收工被打回：已向全队广播收工征询（" + ctx.agent + "）", time: clock() },
-    });
+    this.appendSystemTrace("system", "收工被打回：已向全队广播收工征询（" + ctx.agent + "）");
     return {
       observation: "先别收工：系统按去中心化收工的规矩把你打回了，并向全队广播了征询。" + BR + BR + body,
       detail: "收工被打回：已向全队广播收工征询",
@@ -1618,6 +1618,34 @@ export class AgentRunner {
    * 工作区版本留档：提交一次 + 落 file.written 事件。
    * 任何失败都只是少一条记录，绝不能打断跑（所以整段吞异常）。
    */
+  /**
+   * 墙钟到点时的最终快照（P7-b）。
+   * 实测：交付发生在 90%，agent 之后还在改主产物 —— 「验过的版本」和「最终版本」不是一个
+   * 东西，于是证据看着是真的、产物却是坏的。这里把最终版本号钉进账本并广播全队。
+   */
+  private freezeWorkspace(): void {
+    try {
+      const sha = headSha(this.swarmId);
+      if (!sha) return;
+      const files = this.store.listFiles(this.swarmId);
+      const tail = files
+        .slice(0, 5)
+        .map((file) => file.path + "(" + (file.lastAgent || "?") + " " + (file.lastCommit || "?") + ")")
+        .join("、");
+      this.appendSystemTrace("system", "最终快照：" + sha + "（工作区最终版本；文件 " + String(files.length) + " 个：" + tail + "）");
+      this.mailTeam(
+        "【本轮结束】工作区最终版本 " + sha,
+        "本轮结束时工作区的最终 git 版本是 " + sha + "。" + "\n" + "\n" +
+          "注意：**交付之后被改动过的产物，以这个版本为准**（交付那一刻的证据可能已经过期）。" + "\n" +
+          "下一轮接着干：git show " + sha + ":路径 取任意文件；git diff " + sha + " HEAD -- 路径 看后来改了什么。" + "\n" +
+          "文件清单：" + tail,
+        "verify",
+      );
+    } catch (error) {
+      console.error("[runner] 最终快照失败:", error);
+    }
+  }
+
   /** 连续不调工具（P6/B6）：累计到限额就点一次名，任何一次正常调用都清零。 */
   private trackNoTool(agent: string, tool: string): void {
     try {
@@ -1840,6 +1868,7 @@ export class AgentRunner {
       .map((info) => info.slice);
     return {
       store: this.store,
+      boardFraction: SWARM_RUN_MAX_MS > 0 ? Math.min(1, (Date.now() - this.boardT0) / Math.max(1, SWARM_RUN_MAX_MS * SWARM_BOARD_DEADLINE_FRACTION)) : 0,
       swarmId: this.swarmId,
       swarmName,
       goal,

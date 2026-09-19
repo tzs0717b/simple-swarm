@@ -23,6 +23,8 @@ export interface BrainContext {
   /** 队友名单（真模型需要知道能找谁说话） */
   agents: string[];
   agent: string;
+  /** 立板窗口已过去的比例（0..1）：协商闸过半降级用（自检脚本可不传） */
+  boardFraction?: number;
   /** M8：这个集群的工作目录绝对路径（agent 需要在提示词里知道它，才知道产物放哪儿、从哪里读） */
   workDir: string;
   /** 这一轮实际要用的模型（车道/降级算出来的）。llm 侧必须用它，否则车道白排。 */
