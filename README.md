@@ -65,6 +65,39 @@ cd ../simple-swarm-web && npm install && npm run dev     # 界面 :5173
 | SWARM_SLICER_MODEL | 派工员模型（把目标切成可认领的片） |
 | SWARM_ALLOW_CONTRACT | 设 1 才允许把 contract/ 喂给集群（默认闭卷） |
 
+## 接入你自己的模型（不需要 keypool）
+
+集群只要求一个 **OpenAI 兼容** 的 /chat/completions 端点。最少三个变量（见仓库根目录 .env.example）：
+
+| 变量 | 说明 |
+|---|---|
+| LLM_BASE_URL | 你的端点，例如 https://api.deepseek.com/v1、https://openrouter.ai/api/v1、http://127.0.0.1:11434/v1（Ollama）|
+| LLM_API_KEY | 你的 key（本地 Ollama 随便填一个非空值）|
+| LLM_MODEL | **真实模型名**。默认值 auto 是我们自建 keypool 的专有别名，用别家端点必须改，否则会 404 |
+
+### keypool 是可选的加速器，不是依赖
+
+本项目的模型选择最初是围绕一个自建 keypool 设计的，它做三件事：三层密钥池（模型 → provider → key）、
+按**实测失败率与首字延迟**给模型分档、按「车道」让每个 agent 绑定不同 provider 以免同一把 key 被打爆。
+**这些全部可选用**：
+
+- 读不到 keypool（KEYPOOL_ADMIN_URL 连不上、KEYPOOL_* 全空）时，集群会退回静态模型名单继续跑，绝不阻塞开跑；
+  代码位置 src/agent/runner.ts 的 probeLanes 调用外面就是 try/catch。
+- KEYPOOL_* 系列变量全部可以留空。
+- 请求里带的 x-key-policy / x-client-id 两个头只有我们的 keypool 认，别的网关会忽略，无害。
+
+### 想要多 provider / 多 key，又不想自己写这一层
+
+把 LLM_BASE_URL 指向一个开源网关就行，集群只看得见一个 /v1：
+
+| 网关 | 适合谁 |
+|---|---|
+| litellm | 能力最全，100+ provider、fallback、预算与限流 |
+| new-api / one-api | 形态最接近我们的 keypool：多渠道 × 多密钥 + 管理台 |
+| gpt-load | 专做密钥池与密钥级健康检查 |
+| bifrost、Portkey gateway | 自适应负载均衡 / 路由与护栏 |
+
+我们自建 keypool 与它们的差别在「按实测数据自动分档」这一点上（详见本文件顶部的开源生态讨论）。
 ## 自检
 
 ~~~~bash
