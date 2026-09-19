@@ -1,13 +1,16 @@
 /*
  * 静态扫描：每个源文件里「用到的标识符」是否都有 import 或声明。
  *
- * 立这条规矩的直接原因（2026-09-19）：我用脚本去重 import 时误删了 llm.ts 的两行、
- * runner.ts 的 5 个、routes-write.ts 一行 —— 局部 diff 看不出来，直到真跑起来
- * 全员第一轮 SWARM_NEGOTIATE_BOARD is not defined 才发现，白烧 $1.87。
+ * 为什么有这条规矩（2026-09-19）：我用脚本去重 import 时误删了 llm.ts 的两行、runner.ts 5 个、
+ * routes-write.ts 一行 —— 局部 diff 看不出来，直到真跑起来全员第一轮
+ * SWARM_NEGOTIATE_BOARD is not defined 才发现，白烧 $1.87。
  * 后来给 board-check.ts 加用例又犯了同一类错（用了 talkFirstPending 却没 import）。
- * 所以：改完必须跑这个。
  *
- * 跑法：node scripts/import-check.ts
+ * 实现要点：扫描前先剥掉注释和字符串字面量 —— 否则注释/文案里出现的 env 名字会全部误报
+ * （第一版就报了 9 条假警，包括它自己源码里的正则）。动态 import 的解构
+ * （const { genericSlices } = await import(...)）算已声明，不算缺失。
+ *
+ * 跑法：node scripts/import-check.ts   （失败 exit 1）
  */
 import { readFileSync, readdirSync } from "node:fs";
 
@@ -17,24 +20,33 @@ function tsFiles(dir: string): string[] {
     .map((name) => dir + "/" + name);
 }
 
+/** 剥注释与字符串字面量：剩下的才是「真的在代码里用到」。 */
+function codeOnly(src: string): string {
+  return src
+    .replace(/\/\*[\s\S]*?\*\//g, " ")
+    .replace(/(^|[^:])\/\/[^\n]*/g, "$1 ")
+    .replace(/"(?:[^"\\]|\\.)*"/g, "\"\"")
+    .replace(/'(?:[^'\\]|\\.)*'/g, "''")
+    .replace(/`(?:[^`\\]|\\.)*`/g, "``");
+}
+
+const NAMES = /\b(SWARM_[A-Z_0-9]+|talkFirstPending|boardHintText|negotiateKickoffText|boardDeadlineReached|boardTimeoutText|genericSlices)\b/g;
+const SELF = "scripts/import-check.ts";
 const files = tsFiles("src").concat(tsFiles("src/agent"), tsFiles("scripts"));
-const NAME = /\b(SWARM_[A-Z_0-9]+|talkFirstPending|boardHintText|negotiateKickoffText|boardDeadlineReached|boardTimeoutText|genericSlices)\b/g;
 const problems: string[] = [];
 
 for (const file of files) {
-  /* 扫描器自己不算：它源码里就是这些名字的正则（第一版扫自己报了 4 条假警）。 */
-  if (file === "scripts/import-check.ts") continue;
-  const src = readFileSync(file, "utf8");
-  const body = src.replace(/process\.env\.(SWARM_[A-Z_0-9]+)/g, "ENV_$1");
+  if (file === SELF) continue;
+  const raw = readFileSync(file, "utf8");
+  const body = codeOnly(raw).replace(/process\.env\.(SWARM_[A-Z_0-9]+)/g, "ENV_$1");
   const names = new Set<string>();
-  for (const m of body.matchAll(NAME)) names.add(m[1]);
+  for (const m of body.matchAll(NAMES)) names.add(m[1]);
   for (const name of names) {
     if (name === "SWARM_HOME") continue;
-    /* 作为对象键出现的（SWARM_ID: ctx.swarmId）不是标识符用法 */
-    const asKey = new RegExp("\\b" + name + "\\s*:").test(body);
-    const imported = new RegExp("import[^;]*\\b" + name + "\\b[^;]*;", "s").test(src);
-    const declared = new RegExp("(const|let|var|function|class)\\s+" + name + "\\b").test(src);
-    if (!imported && !declared && !asKey) problems.push(file + " 缺 " + name);
+    const imported = new RegExp("import[^;]*\\b" + name + "\\b[^;]*;", "s").test(raw);
+    const declared = new RegExp("(const|let|var|function|class)\\s+" + name + "\\b").test(body);
+    const destructured = new RegExp("const\\s*\\{[^}]*\\b" + name + "\\b[^}]*\\}").test(body);
+    if (!imported && !declared && !destructured) problems.push(file + " 缺 " + name);
   }
 }
 
