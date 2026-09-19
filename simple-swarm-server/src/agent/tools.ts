@@ -308,7 +308,7 @@ export function toolPublishSlice(ctx: ToolContext, slice: string): ToolResult {
       observation:
         "先别造新活：板上还有 " + free.length + " 片没人接 —— " +
         free.map((info) => "「" + info.slice + "」").join("、") +
-        "。用 claim_slice 接一片（一次接一片，做完再发布你自己的新工作）。",
+        "。用 claim_slice 接一片（一次接一片只是节奏限制，接完可以接着接更多片；关键路径上的硬骨头欢迎多人同干一片）。",
       detail: "发布被挡：板上有没人接的活，先接活再造血",
     };
   }
@@ -804,7 +804,7 @@ export const SWARMKIT: ToolSpec[] = [
   },
   {
     name: "claim_slice",
-    help: "认领一片**已经发布**在认领板上的工作（可以是别人发布、目前没主的）。板上还没有的，用 publish_slice 自己发布。",
+    help: "认领一片**已经发布**在认领板上的工作（可以是别人发布、目前没主的）。一次可以接多片；已经被别人认领但**没做完**的片，也可以直接 join 一起干（多人同干一片是允许的，撞车不是失败）。板上还没有的，用 publish_slice 自己发布。",
     parameters: { type: "object", properties: { slice: { type: "string", description: "切片名" } }, required: ["slice"] },
   },
   {

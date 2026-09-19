@@ -31,8 +31,8 @@ ok(k.includes(GOAL), "\u5e7f\u64ad\u91cc\u5e26\u5b8c\u6574\u9898\u76ee\uff08\u4e
 ok(k.includes("4 \u4e2a\u4eba"), "\u5e7f\u64ad\u91cc\u5e26\u4eba\u6570");
 ok(k.includes("5 \u5206\u949f"), "\u5e7f\u64ad\u91cc\u5e26\u7acb\u677f\u7a97\u53e3\uff08270s \u2192 5 \u5206\u949f\uff09");
 ok(k.includes("publish_slice") && k.includes("send_mail"), "\u5e7f\u64ad\u6559\u4e86\u5de5\u5177\u600e\u4e48\u7528");
-ok(k.includes("\u96c6\u6210") && k.includes("\u72ec\u7acb\u590d\u68c0") && k.includes("\u9608\u503c"), "\u5e7f\u64ad\u542b\u4e09\u7c7b\u5fc5\u5907\u7247");
-ok(k.includes("\u4e0d\u8bb8\u4e24\u4e2a\u4eba\u505a\u540c\u4e00\u4ef6\u4e8b"), "\u5e7f\u64ad\u7981\u91cd\u590d\u52b3\u52a8");
+ok(k.includes("并行优先") && k.includes("合成一片") && k.includes("多人同干一片"), "广播教并行优先 + 串行链合成一片 + 允许多人同干（旧的三类必备片教条已废）");
+ok(k.includes("主导") && k.includes("多人同干一片"), "广播既划主导负责人边界、又允许硬骨头协作（旧的禁止重复劳动教条已废）");
 ok(!/SVG|svg|\u8f66\u8f6e|\u9e48\u9e49|\u90e8\u4ef6/.test(k), "\u5e7f\u64ad\u4e0d\u542b\u4efb\u4f55\u5199\u6b7b\u7684\u4efb\u52a1\u7c7b\u578b");
 
 console.log("=== \u7acb\u677f\u622a\u6b62\u5224\u65ad ===");

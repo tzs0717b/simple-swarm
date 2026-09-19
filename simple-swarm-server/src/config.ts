@@ -86,6 +86,10 @@ export const SWARM_NEGOTIATE_BOARD = (process.env.SWARM_NEGOTIATE_BOARD ?? "1") 
    用户口径：让他们先在广播商量计划和分配工作。只挂片不商量，板就变成各占各的。
    到 SWARM_BOARD_DEADLINE_FRACTION 兜底切法上板后，这道门自动失效 —— 不会死锁。 */
 export const SWARM_BOARD_TALK_FIRST = (process.env.SWARM_BOARD_TALK_FIRST ?? "1") !== "0";
+/* 多人同干一片（2026-09-19，用户口径）：拆出来是线性链时，就该多人一起上关键路径，
+   而不是把后来的人推到别的片上排队。=1（默认）永远允许加入一片已在别人名下、未完成的片；
+   =0 退回老规矩：板上还有空活就 first-wins（撞了去接新的）。 */
+export const SWARM_SHARE_SLICES = (process.env.SWARM_SHARE_SLICES ?? "1") !== "0";
 /* 立板截止（墙钟比例）：到这个点板上还是 0 片 → 系统才用保底切法兜底。 */
 export const SWARM_BOARD_DEADLINE_FRACTION = Number(process.env.SWARM_BOARD_DEADLINE_FRACTION ?? "0.3");
 /* 目标全文给 agent 的字符上限。旧值 120 只够一句话 —— 让它自己立板就必须看全题。 */
