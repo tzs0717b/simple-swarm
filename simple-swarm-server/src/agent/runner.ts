@@ -772,6 +772,10 @@ export class AgentRunner {
          写成 json 文本，系统认不出来，同一个 agent 白烧 30 步 / 100k token，还永远不换模型。 */
       if (JSON.stringify(step).includes("模型没有调用任何工具")) {
         this.consecutiveBrainErrors.set(agent, (this.consecutiveBrainErrors.get(agent) ?? 0) + 1);
+        /* B1（2026-09-19 实测 p2482-diandian3）：no-tool 时原地重试基本必然再失败（同一上下文同一毛病），
+           一次 no-tool 最多白烧 6 次调用（llm 催 1 次 × runner 重试 2 次），全轮 52 次调用被吃掉约 1/3。
+           不再原地重试：计完大脑异常（保留故障转移语义）直接放弃这一轮，等下一个排程轮次带新现场再来。 */
+        return step;
       }
       if (attempt < this.maxAgentRetries) {
         this.store.append({
