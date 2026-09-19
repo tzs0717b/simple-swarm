@@ -49,3 +49,4 @@ run-pel45.sh
 # 运行时状态
 *.pid
 run-*.sh
+run/
