@@ -50,3 +50,11 @@ run-pel45.sh
 *.pid
 run-*.sh
 run/
+
+# 运行时产物（pid/日志/数据/工作区）
+*.log
+*.db
+*.sqlite
+*.sqlite3
+.server.pid
+simple-swarm-server/.server.pid
