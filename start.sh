@@ -40,6 +40,10 @@ API="http://127.0.0.1:$PORT"
 WEBURL="http://127.0.0.1:$WEB_PORT"
 GATEWAY="http://127.0.0.1:3131"
 KEYPOOL_ENV="$HOME/.dsh/keypool-env.sh"
+# 集群运行参数（时长/预算/车道/模型…）。放这里是为了让看门狗重拉进程时也带上，
+# 否则 node 挂了被自动拉起后会退回代码默认值 —— 2026-09-19 踩过这个坑。
+SWARM_ENV="$HOME/.dsh/swarm-env.sh"
+[ -f "$SWARM_ENV" ] && . "$SWARM_ENV"
 BOOT_HOOK="$HOME/.termux/boot/95-swarm.sh"
 
 mkdir -p "$RUN" "$LOG"
