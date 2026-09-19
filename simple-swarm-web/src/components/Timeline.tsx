@@ -3,7 +3,7 @@ import type { ThreadData } from "../data";
 
 /* 每个成员一条轨迹，点数 = 该成员在本集群的**真实工作步数**（count）。
    后端按"工具调用/思考"算，网关重试与系统跳过不算 —— 点的是干活，不是发言。 */
-export default function Timeline({ thread, compact = false }: { thread: ThreadData; compact?: boolean }) {
+export default function Timeline({ thread }: { thread: ThreadData }) {
   const rows = thread.members;   /* 不再按 compact 截断人数 */
   const maxCount = Math.max(1, ...rows.map((member) => member.count));
   return (

@@ -68,13 +68,20 @@ export interface SwarmData {
   createdAt: string;
 }
 
+/** 把 claimedBy 归一成数组：后端在多人同干一片时返回数组，单人是字符串，空板是空串。 */
+export function claimersOf(info: { claimedBy: string | string[] }): string[] {
+  const value = info.claimedBy;
+  if (Array.isArray(value)) return value.filter((name) => name.length > 0);
+  return value ? [value] : [];
+}
+
 /** 看板上的一个切片（M6）：available → claimed → completed */
 export interface SliceInfo {
   /** 切片名（同集群内唯一，也是认领的键） */
   slice: string;
   status: "available" | "claimed" | "completed";
   /** 谁认领的（裸名字）；available 时为 "" */
-  claimedBy: string;
+  claimedBy: string | string[];
   /** 交付时留下的证据；未交付时是 "" */
   evidence: string;
 }

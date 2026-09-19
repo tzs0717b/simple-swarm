@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
 import type { SwarmData } from "../data";
 import { api } from "../lib/api";
@@ -11,6 +11,16 @@ const NAV = [
   { to: "/swarms", label: "集群" },
   { to: "/threads", label: "线程" },
   { to: "/agents", label: "智能体" },
+];
+
+/* 集群内的子导航。以前进了某个集群以后，各子页之间只能用页脚零散的按钮互相跳，
+   没有任何层内导航 —— 这是「显示不完全」的一部分。 */
+const SWARM_TABS: { segment: string; label: string }[] = [
+  { segment: "", label: "总览" },
+  { segment: "slices", label: "看板" },
+  { segment: "threads", label: "线程" },
+  { segment: "trace", label: "追踪" },
+  { segment: "agents", label: "智能体" },
 ];
 
 function useRouteContext() {
@@ -39,17 +49,16 @@ function Breadcrumb() {
   const totals = useTotals();
   const crumbs: { label: string; to?: string }[] = [];
   crumbs.push({ label: "集群", to: "/swarms" });
-  if (swarm) crumbs.push({ label: swarm.name, to: `/swarms/${swarm.id}/threads` });
-  if (pathname.includes("/threads")) crumbs.push({ label: "线程", to: swarm ? `/swarms/${swarm.id}/threads` : "/threads" });
+  if (swarm) crumbs.push({ label: swarm.name, to: "/swarms/" + swarm.id });
   if (pathname.includes("/slices")) crumbs.push({ label: "看板" });
   if (pathname.includes("/trace")) crumbs.push({ label: "追踪" });
-  if (pathname.includes("/agents")) crumbs.push({ label: "智能体" });
-  if (thread) crumbs.push({ label: thread.title });
+  if (pathname.includes("/threads")) crumbs.push({ label: thread ? thread.title : "线程" });
+  if (pathname.includes("/agents") && !thread) crumbs.push({ label: "智能体" });
 
   return (
     <nav className="flex items-center gap-1.5 text-[11px] text-[#888888]">
       {crumbs.map((crumb, index) => (
-        <span key={`${crumb.label}-${index}`} className="flex items-center gap-1.5">
+        <span key={crumb.label + String(index)} className="flex items-center gap-1.5">
           {index > 0 ? <span className="text-[#c4c4bf]">›</span> : null}
           {crumb.to && index < crumbs.length - 1 ? (
             <Link to={crumb.to} className="hover:text-[#1a1a1a]">
@@ -105,7 +114,6 @@ function elapsedSince(startedAt: string): number {
   return Math.max(0, Math.floor((Date.now() - start.getTime()) / 1000));
 }
 
-/** 状态徽章色调 */
 function stateTone(state: SwarmData["state"]): "live" | "warn" | "done" | "neutral" {
   if (state === "live") return "live";
   if (state === "pending") return "warn";
@@ -169,18 +177,20 @@ function StatusPanel() {
   const swarms = useSwarms();
   const agents = useAgents();
   const { connection } = useStatus();
-  const [now, setNow] = useState(() => Date.now());
+  const [, setNow] = useState(0);   /* 值不用读：计时用 Date.now() 现算，这个 state 只负责每秒重渲染 */
 
   const target = swarm ?? swarms.find((item) => item.state === "live") ?? swarms[0];
 
+  /* 依赖只放原始值，避免把 target 对象拖进闭包（exhaustive-deps） */
+  const targetId = target?.id;
+  const targetLive = target?.state === "live";
   useEffect(() => {
-    if (!target || target.state !== "live") return;
-    const id = window.setInterval(() => setNow(Date.now()), 1000);
+    if (!targetLive) return;
+    const id = window.setInterval(() => setNow((value) => value + 1), 1000);
     return () => window.clearInterval(id);
-  }, [target?.id, target?.state]);
+  }, [targetId, targetLive]);
 
-  // now 作为依赖，让秒数每秒重算
-  const seconds = useMemo(() => (target ? elapsedSince(target.startedAt) : 0), [target, now]);
+  const seconds = target ? elapsedSince(target.startedAt) : 0;
 
   if (!target) return null;
 
@@ -234,6 +244,37 @@ function StatusPanel() {
   );
 }
 
+/* 集群内子导航：总览 / 看板 / 线程 / 追踪 / 智能体 */
+function SwarmTabs() {
+  const { swarmId, parts } = useRouteContext();
+  if (!swarmId) return null;
+  const segment = parts[2] ?? "";
+  const isAgentDetail = parts.length > 4 && parts[2] === "agents";
+  return (
+    <div className="flex flex-wrap items-center gap-1 border-b border-[#e6e6e2]">
+      {SWARM_TABS.map((tab) => {
+        const to = "/swarms/" + swarmId + (tab.segment ? "/" + tab.segment : "");
+        const active = isAgentDetail ? tab.segment === "agents" : segment === tab.segment;
+        return (
+          <Link
+            key={tab.label}
+            to={to}
+            className={
+              "border-b-2 px-2.5 py-[7px] text-[11px] uppercase tracking-[0.12em] transition " +
+              (active
+                ? "border-[#e8590c] text-[#e8590c]"
+                : "border-transparent text-[#9a9a95] hover:text-[#1a1a1a]"
+              )
+            }
+          >
+            {tab.label}
+          </Link>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function Shell() {
   const [searchOpen, setSearchOpen] = useState(false);
 
@@ -242,7 +283,6 @@ export default function Shell() {
       <SearchPanel open={searchOpen} onClose={() => setSearchOpen(false)} />
       <header className="sticky top-0 z-20 border-b border-[#e0e0e0] bg-[#f9f9f7]/95 backdrop-blur">
         <div className="mx-auto max-w-[1180px] px-5">
-          {/* 第一行：logo + 顶部导航（大标题在上，不放侧面） */}
           <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 py-2.5">
             <Link to="/swarms" className="flex items-center gap-2">
               <LogoMark />
@@ -254,9 +294,8 @@ export default function Shell() {
                   key={item.to}
                   to={item.to}
                   className={({ isActive }) =>
-                    `border-b-2 pb-1 text-[11px] uppercase tracking-[0.14em] transition ${
-                      isActive ? "border-[#1a1a1a] text-[#1a1a1a]" : "border-transparent text-[#9a9a95] hover:text-[#1a1a1a]"
-                    }`
+                    "border-b-2 pb-1 text-[11px] uppercase tracking-[0.14em] transition " +
+                    (isActive ? "border-[#1a1a1a] text-[#1a1a1a]" : "border-transparent text-[#9a9a95] hover:text-[#1a1a1a]")
                   }
                 >
                   {item.label}
@@ -265,7 +304,6 @@ export default function Shell() {
             </nav>
           </div>
 
-          {/* 第二行：左侧面包屑+搜索，右侧紧凑全局状态面板 */}
           <div className="flex flex-wrap items-start justify-between gap-x-8 gap-y-2 border-t border-[#ececea] py-2">
             <div className="flex flex-wrap items-center gap-x-5 gap-y-1 pt-[3px]">
               <Breadcrumb />
@@ -273,6 +311,8 @@ export default function Shell() {
             </div>
             <StatusPanel />
           </div>
+
+          <SwarmTabs />
         </div>
       </header>
 

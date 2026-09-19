@@ -2,6 +2,7 @@ import { useEffect, type ReactNode } from "react";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import Shell from "./components/Shell";
 import SwarmsPage from "./pages/SwarmsPage";
+import SwarmDetailPage from "./pages/SwarmDetailPage";
 import ThreadsPage, { AllThreadsPage } from "./pages/ThreadsPage";
 import ThreadDetailPage from "./pages/ThreadDetailPage";
 import SliceBoardPage from "./pages/SliceBoardPage";
@@ -61,6 +62,8 @@ export default function App() {
           <Route element={<Shell />}>
             <Route path="/" element={<Navigate to="/swarms" replace />} />
             <Route path="/swarms" element={<SwarmsPage />} />
+            {/* 总览：原来没有这一层，裸的 /swarms/:id 会跳回列表 */}
+            <Route path="/swarms/:swarmId" element={<SwarmDetailPage />} />
             <Route path="/swarms/:swarmId/threads" element={<ThreadsPage />} />
             <Route path="/swarms/:swarmId/threads/:threadId" element={<ThreadDetailPage />} />
             <Route path="/swarms/:swarmId/slices" element={<SliceBoardPage />} />

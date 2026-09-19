@@ -1,107 +1,119 @@
+import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { agentColor } from "../lib/theme";
+import { claimersOf, type SliceInfo } from "../data";
 import { ensureSlices, useSlices, useSwarm } from "../lib/store";
-import type { SliceInfo } from "../data";
+import { AgentTag, Badge, stateLabel } from "../components/ui";
 
-/* 看板（M6）：三列 = 切片状态机 available → claimed → completed。
-   真正的价值在「已交付」那一列 —— 每张卡片都带着交付时写下的证据，
-   人（或另一个 agent）可以照着证据核对，而不是只看到一句"我做完了"。 */
+const PANEL = "rounded-[5px] border border-[#e3e3df] bg-[#fdfdfb]";
 
-const COLUMNS: { key: SliceInfo["status"]; label: string; hint: string; accent: string }[] = [
-  { key: "available", label: "待认领", hint: "还没人接", accent: "#9a9a95" },
-  { key: "claimed", label: "进行中", hint: "有人在做", accent: "#ea580c" },
-  { key: "completed", label: "已交付", hint: "做完了，带证据", accent: "#2f7d32" },
+const COLUMNS: { key: SliceInfo["status"]; label: string; accent: string; hint: string }[] = [
+  { key: "available", label: "待接", accent: "#9a9a95", hint: "还没人认领：谁认谁写，认领即承诺交付。" },
+  { key: "claimed", label: "进行中", accent: "#e8590c", hint: "有人在做。同一片可以多人同干（会显示所有认领人）。" },
+  { key: "completed", label: "已交付", accent: "#16a34a", hint: "交付时必须带验收证据（测试输出 / 实测结果）。" },
 ];
 
-function SliceCard({ info }: { info: SliceInfo }) {
+function Evidence({ text }: { text: string }) {
+  const [open, setOpen] = useState(false);
+  const long = text.length > 180;
   return (
-    <div className="rounded-[4px] border border-[#e3e3df] bg-white px-3 py-2">
-      <div className="flex items-baseline justify-between gap-2">
-        <span className="text-[12px] font-semibold text-[#2c2c2a]">{info.slice}</span>
-        {info.claimedBy ? (
-          <span className="mono shrink-0 text-[10px]" style={{ color: agentColor(info.claimedBy) }}>
-            {info.claimedBy}
-          </span>
-        ) : null}
-      </div>
-      {info.evidence ? (
-        <p className="mt-1 border-t border-[#f1f1ee] pt-1 text-[11px] leading-[1.6] text-[#5c5c58]">
-          <span className="mr-1 text-[10px] uppercase tracking-[0.08em] text-[#9a9a95]">证据</span>
-          {info.evidence}
-        </p>
-      ) : info.status === "completed" ? (
-        <p className="mt-1 border-t border-[#f1f1ee] pt-1 text-[11px] text-[#b0b0aa]">
-          <span className="mr-1 text-[10px] uppercase tracking-[0.08em]">证据</span>（这条是老账本，交付时还没要求写证据）
-        </p>
+    <div className="mt-2 rounded-[3px] border border-[#efefec] bg-[#fbfbf9] px-2 py-1.5">
+      <p className="text-[9px] uppercase tracking-[0.14em] text-[#9a9a95]">交付证据</p>
+      <p
+        className="mono mt-1 whitespace-pre-wrap break-words text-[10px] leading-[1.7] text-[#4a4a47]"
+        style={!open && long ? { maxHeight: 62, overflow: "hidden" } : undefined}
+      >
+        {text}
+      </p>
+      {long ? (
+        <button type="button" onClick={() => setOpen((value) => !value)} className="mt-1 text-[10px] text-[#e8590c] hover:underline">
+          {open ? "收起" : "展开全部"}
+        </button>
       ) : null}
     </div>
   );
 }
 
-export default function SliceBoardPage() {
-  const { swarmId } = useParams<{ swarmId: string }>();
-  const swarm = useSwarm(swarmId);
-  const slices = useSlices(swarmId);
-
+function SliceCard({ info }: { info: SliceInfo }) {
+  const owners = claimersOf(info);
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-[22px] font-bold uppercase tracking-[0.04em] text-[#e8590c]">看板</h1>
-          <p className="mt-1 font-mono text-[11px] text-[#888888]">
-            {swarm?.name ?? "看板"} · {slices.length} 片 · 交付 {slices.filter((s) => s.status === "completed").length} 片
-          </p>
-          <p className="mt-1 text-[11px] text-[#888888]">
-            {slices.filter((s) => s.status === "available").length > 0
-              ? `未认领 ${slices.filter((s) => s.status === "available").length} 片`
-              : "全部已认领"}
-          </p>
-          {slices.length === 0 ? (
-            <p className="mt-1 text-[11px] text-[#b0b0aa]">
-              这个集群的看板还是空的 —— 智能体用 publish_slice 发布切片后会出现在这里；没看到就点「刷新」。
-            </p>
-          ) : null}
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => swarmId && ensureSlices(swarmId, true)}
-            title="强制从后端重拉这个集群的看板"
-            className="rounded-[4px] border border-[#dcdcd7] bg-[#fdfdfb] px-3 py-[6px] text-[11px] uppercase tracking-[0.1em] text-[#5c5c58] hover:border-[#1a1a1a] hover:text-[#1a1a1a]"
-          >
-            刷新
-          </button>
-          <Link
-            to={"/swarms/" + swarmId + "/threads"}
-            className="rounded-[4px] border border-[#dcdcd7] bg-[#fdfdfb] px-3 py-[6px] text-[11px] uppercase tracking-[0.1em] text-[#5c5c58] hover:border-[#1a1a1a] hover:text-[#1a1a1a]"
-          >
-            线程
-          </Link>
-          <Link
-            to={"/swarms/" + swarmId + "/trace"}
-            className="rounded-[4px] border border-[#dcdcd7] bg-[#fdfdfb] px-3 py-[6px] text-[11px] uppercase tracking-[0.1em] text-[#5c5c58] hover:border-[#1a1a1a] hover:text-[#1a1a1a]"
-          >
-            原始追踪
-          </Link>
-        </div>
+    <article className="rounded-[4px] border border-[#e6e6e2] bg-[#fdfdfb] px-2.5 py-2">
+      <div className="flex items-start justify-between gap-2">
+        <h3 className="min-w-0 flex-1 text-[12px] font-medium leading-[1.5] text-[#1a1a1a]">{info.slice}</h3>
+        <span className="mono shrink-0 text-[9px] uppercase tracking-[0.12em] text-[#c4c4bf]">
+          {info.status === "completed" ? "✓ 交付" : info.status === "claimed" ? "进行" : "待接"}
+        </span>
       </div>
 
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+      {owners.length > 0 ? (
+        <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+          <span className="text-[9px] uppercase tracking-[0.14em] text-[#b0b0aa]">认领</span>
+          {owners.map((name) => <AgentTag key={name} name={name} />)}
+          {owners.length > 1 ? <span className="rounded-[3px] bg-[#eef4fd] px-1 py-[1px] text-[9px] text-[#4a90e2]">多人同干</span> : null}
+        </div>
+      ) : (
+        <p className="mt-1.5 text-[10px] text-[#c4c4bf]">等待认领</p>
+      )}
+
+      {info.evidence ? <Evidence text={info.evidence} /> : null}
+    </article>
+  );
+}
+
+export default function SliceBoardPage() {
+  const { swarmId } = useParams();
+  const swarm = useSwarm(swarmId);
+  const slices = useSlices(swarmId);
+  const [refreshing, setRefreshing] = useState(false);
+
+  useEffect(() => {
+    if (swarmId) ensureSlices(swarmId);
+  }, [swarmId]);
+
+  function refresh() {
+    if (!swarmId) return;
+    setRefreshing(true);
+    ensureSlices(swarmId, true);
+    window.setTimeout(() => setRefreshing(false), 900);
+  }
+
+  const delivered = slices.filter((slice) => slice.status === "completed").length;
+  const shared = slices.filter((slice) => claimersOf(slice).length > 1).length;
+
+  return (
+    <div className="space-y-3">
+      <div className={PANEL + " flex flex-wrap items-center justify-between gap-3 px-3 py-2.5"}>
+        <div className="min-w-[240px] flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="text-[13px] font-semibold uppercase tracking-[0.1em]">认领板</h1>
+            {swarm ? <Badge tone={swarm.state === "live" ? "live" : swarm.state === "done" ? "done" : "neutral"}>{stateLabel(swarm.state)}</Badge> : null}
+            {swarm ? <Link to={"/swarms/" + swarm.id} className="mono text-[10px] text-[#b0b0aa] hover:text-[#1a1a1a]">{swarm.name} ← 总览</Link> : null}
+          </div>
+          <p className="mt-1.5 text-[10px] leading-[1.8] text-[#9a9a95]">
+            共 {slices.length} 片 · 已交付 {delivered} · 多人同干 {shared}
+            {slices.length === 0 ? " · 板还空着：agent 要先在广播里商量分工，所有人都说过一轮才会开板" : ""}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={refresh}
+          className="rounded-[3px] border border-[#dcdcd7] bg-[#fdfdfb] px-2.5 py-[4px] text-[10px] uppercase tracking-[0.1em] text-[#5c5c58] hover:border-[#1a1a1a] hover:text-[#1a1a1a]"
+        >
+          {refreshing ? "刷新中…" : "刷新"}
+        </button>
+      </div>
+
+      <div className="grid gap-3 md:grid-cols-3">
         {COLUMNS.map((column) => {
           const items = slices.filter((item) => item.status === column.key);
           return (
-            <section key={column.key} className="rounded-[5px] border border-[#e3e3df] bg-[#fdfdfb] p-3">
-              <header className="mb-2 flex items-baseline justify-between">
-                <h2 className="text-[12px] font-semibold uppercase tracking-[0.08em]" style={{ color: column.accent }}>
-                  {column.label}
-                </h2>
+            <section key={column.key} className={PANEL + " p-3"}>
+              <header className="mb-1 flex items-baseline justify-between">
+                <h2 className="text-[12px] font-semibold uppercase tracking-[0.08em]" style={{ color: column.accent }}>{column.label}</h2>
                 <span className="mono text-[10px] text-[#9a9a95]">{items.length}</span>
               </header>
-              <p className="mb-2 text-[10px] text-[#b0b0aa]">{column.hint}</p>
+              <p className="mb-2 text-[10px] leading-[1.7] text-[#b0b0aa]">{column.hint}</p>
               <div className="space-y-2">
-                {items.map((item) => (
-                  <SliceCard key={item.slice} info={item} />
-                ))}
+                {items.map((item) => <SliceCard key={item.slice} info={item} />)}
                 {items.length === 0 ? <p className="text-[11px] text-[#d0d0cb]">还没有</p> : null}
               </div>
             </section>
