@@ -1,7 +1,7 @@
 import { useEffect, useMemo, type ReactNode } from "react";
 import { Link, useParams } from "react-router-dom";
 import { claimersOf, type SliceInfo, type TraceEventData } from "../data";
-import { thousands } from "../lib/theme";
+import { swarmColor, thousands } from "../lib/theme";
 import { typeColor, typeLabel } from "../lib/trace";
 import { ensureSlices, ensureTrace, useAgents, useSlices, useSwarm, useTrace } from "../lib/store";
 import { AgentTag, Badge, Bar, Dot, stateLabel } from "../components/ui";
@@ -113,7 +113,8 @@ export default function SwarmDetailPage() {
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-[260px] flex-1">
             <div className="flex flex-wrap items-center gap-2">
-              <h1 className="text-[15px] font-semibold tracking-[0.02em]">{swarm.name}</h1>
+              <span className="h-[12px] w-[3px] shrink-0 rounded-full" style={{ background: swarmColor(swarm.name) }} />
+              <h1 className="text-[15px] font-semibold tracking-[0.02em]" style={{ color: swarmColor(swarm.name) }}>{swarm.name}</h1>
               <Badge tone={stateTone(swarm.state)}>{stateLabel(swarm.state)}</Badge>
               <span className="mono text-[10px] text-[#b0b0aa]">{swarm.id}</span>
               <span className="mono text-[10px] text-[#b0b0aa]">创建 {swarm.createdAt} 启动 {swarm.startedAt || "—"}</span>

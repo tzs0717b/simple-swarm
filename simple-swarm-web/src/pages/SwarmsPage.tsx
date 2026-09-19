@@ -4,7 +4,7 @@ import { useSwarms } from "../lib/store";
 import { api } from "../lib/api";
 import { createSwarm, deleteSwarm } from "../lib/store";
 import type { SwarmData } from "../data";
-import { duration, thousands } from "../lib/theme";
+import { duration, swarmColor, thousands } from "../lib/theme";
 import { Badge, Dot, stateLabel } from "../components/ui";
 
 const PANEL = "rounded-[5px] border border-[#e3e3df] bg-[#fdfdfb]";
@@ -113,7 +113,8 @@ function SwarmCard({ swarm, onDelete }: { swarm: SwarmData; onDelete: (id: strin
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-[260px] flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <Link to={"/swarms/" + swarm.id} className="text-[13px] font-semibold hover:underline">{swarm.name}</Link>
+            <span className="h-[11px] w-[3px] shrink-0 rounded-full" style={{ background: swarmColor(swarm.name) }} />
+            <Link to={"/swarms/" + swarm.id} className="text-[13px] font-semibold hover:underline" style={{ color: swarmColor(swarm.name) }}>{swarm.name}</Link>
             <Badge tone={swarm.state === "live" ? "live" : swarm.state === "done" ? "done" : swarm.state === "pending" ? "warn" : "neutral"}>
               {stateLabel(swarm.state)}
             </Badge>
