@@ -45,3 +45,7 @@ run-pel45.sh
 .[!g]*
 !.gitattributes
 !.env.example
+
+# 运行时状态
+*.pid
+run-*.sh
