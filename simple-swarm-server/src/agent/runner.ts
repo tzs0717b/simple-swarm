@@ -45,7 +45,7 @@ import { FIX_PREFIX, REVERIFY_PREFIX, isVerificationSlice, reverifyName, verdict
 import type { AgentStop, IncompleteStop, SliceInfo, TraceEventData, TraceType } from "../types.ts";
 import type { Brain, BrainContext, Decision, StepUsage } from "./brain.ts";
 import { sweepChallenges } from "../challenges.ts";
-import { SWARM_GOAL_CHARS, SWARM_BOARD_DEADLINE_FRACTION, SWARM_NEGOTIATE_BOARD, SWARM_RUN_MAX_MS, SWARM_PROTOTYPE_FRACTION, SWARM_INBOX_GATE, SWARM_PROTOTYPE_MIN_BUDGET, SWARM_PROTOTYPE_BUDGET } from "../config.ts";
+import { SWARM_GOAL_CHARS, SWARM_BOARD_DEADLINE_FRACTION, SWARM_NEGOTIATE_BOARD, SWARM_RUN_MAX_MS, SWARM_PROTOTYPE_FRACTION, SWARM_INBOX_GATE, SWARM_PROTOTYPE_MIN_BUDGET, SWARM_PROTOTYPE_BUDGET, SWARM_HANDOFF_THROTTLE_MS, SWARM_HANDOFF_MAIL_CAP } from "../config.ts";
 import { boardDeadlineReached, boardTimeoutText, negotiateKickoffText, resumeKickoffText } from "../board.ts";
 import {
   toolArchive,
@@ -69,6 +69,7 @@ import {
 } from "./tools.ts";
 import { workspaceOf } from "./workspace.ts";
 import { commitStep } from "./gitworkspace.ts";
+import { detectHandoffs, handoffMailText, type Handoff } from "./versions.ts";
 import { toolChallenge, toolRespondChallenge, toolRuleChallenge } from "./tools.ts";
 
 export interface RunnerOptions {
@@ -208,6 +209,9 @@ export class AgentRunner {
   private readonly independentRecheckOn: boolean;
   /** 交作业闸只喊一次 */
   private shipNudged = 0;
+  /* 换手播报（M12-P2）：节流表 + 单轮计数，别把邮箱刷爆 */
+  private readonly handoffMailed = new Map<string, number>();
+  private handoffMailCount = 0;
   private readonly maxBrainErrors: number;
   private readonly fallbackModels: string[];
   private readonly failoverAfter: number;
@@ -1606,6 +1610,8 @@ export class AgentRunner {
   private commitWorkspace(agent: string, tool: string, result: ToolResult): void {
     try {
       const goal = this.store.getSwarm(this.swarmId)?.goal ?? "";
+      /* 提交之前先拍一张「谁写过什么」的快照 —— 换手检测比的就是它 */
+      const before = this.store.listFiles(this.swarmId);
       const commit = commitStep(this.swarmId, agent, tool, result.detail ?? "", goal);
       if (!commit || commit.changed.length === 0) return;
       for (const change of commit.changed) {
@@ -1620,8 +1626,40 @@ export class AgentRunner {
           time: clock(),
         });
       }
+      /* 换手播报：这一版动了别人的文件。系统不做裁判，只负责把「你那版被顶掉了、怎么拿回来」说出口 */
+      for (const handoff of detectHandoffs(before, commit.changed, agent)) {
+        this.appendSystemTrace(
+          "system",
+          "文件换手：" + handoff.path + " 由 " + handoff.prevAgent + " → " + agent + "（上一版 " + (handoff.prevCommit || "?") + "）",
+        );
+        this.mailHandoff(handoff);
+      }
     } catch {
       /* 留档失败不能影响跑 */
+    }
+  }
+
+  /** 换手通知：点对点告诉上一版作者「你那版被谁改了、怎么取回来」。带节流和单轮上限。 */
+  private mailHandoff(handoff: Handoff): void {
+    try {
+      const key = handoff.path + "|" + handoff.prevAgent + "|" + handoff.agent;
+      const now = Date.now();
+      const last = this.handoffMailed.get(key) ?? 0;
+      if (now - last < SWARM_HANDOFF_THROTTLE_MS) return;
+      if (this.handoffMailCount >= SWARM_HANDOFF_MAIL_CAP) return;
+      this.handoffMailed.set(key, now);
+      this.handoffMailCount += 1;
+      const text = handoffMailText(handoff);
+      sendMail(this.store, {
+        swarmId: this.swarmId,
+        from: "system",
+        to: [addressOf(handoff.prevAgent, this.swarmId)],
+        subject: text.subject,
+        body: text.body,
+        kind: "verify",
+      });
+    } catch (error) {
+      console.error("[runner] 换手通知发送失败:", error);
     }
   }
 

@@ -27,6 +27,7 @@ import { addressOf } from "../mail.ts";
 import type { Brain, BrainContext, Decision, DecisionResult, StepUsage } from "./brain.ts";
 import type { ToolResult } from "./tools.ts";
 import { SWARMKIT } from "./tools.ts";
+import { fileVersionLines } from "./versions.ts";
 import { SWARM_NEGOTIATE_BOARD } from "../config.ts";
 import { boardHintText } from "../board.ts";
 
@@ -682,6 +683,9 @@ export class LlmBrain implements Brain {
             : "- 你还没认领任何片，而且板上 " + String(allSlices.length) + " 片都有人了。**别原地打转读文件**：" +
               "claim_slice 加入一片（同一片多人同干，系统鼓励这种协作），" +
               "或者 publish_slice 立一片新的（把那片缺的验收 / 对拍 / 边界用例接过来）。";
+    /* 工作区是 git 版本库（M12）：把「谁动过这个文件、我最新那版是哪个提交」摆到面前。
+       2026-09-19 实测：agent 主要用 bash heredoc 写文件，覆盖别人的实现毫无痕迹 —— 现在有版本号了。 */
+    const versionLines = fileVersionLines(store.listFiles(swarmId), agent, 6);
     const board = store.listSlices(swarmId).map((slice) => {
       const who = slice.claimedBy.length > 0 ? slice.claimedBy : "无人";
       return slice.slice + "=" + slice.status + "(" + who + ")";
@@ -707,6 +711,11 @@ export class LlmBrain implements Brain {
         "｜通讯录：" + ctx.agents.filter((name) => name !== agent).map((name) => name + "@" + swarmId + ".swarm").join("、"),
       "- 你的未读邮件：" + unreadMails.length + " 封" + (preview.length > 0 ? "\n" + preview : "（没有未读，别再 read_inbox 了）"),
       mineLine,
+      ...(versionLines.length > 0
+        ? ["- 文件版本（工作区是 git 仓库，系统每步自动提交并署你的名）：\n  " +
+            versionLines.join("\n  ") +
+            "\n  取回自己那版：git show <版本号>:路径 > 路径；看差异：git diff <版本号> HEAD -- 路径"]
+        : []),
       "- 看板：" + (board.length > 0 ? board.join("，") : "（空的 —— 你要做什么就 publish_slice 发布上去）"),
       "- 已收工的人：" + (done.length > 0 ? done.join("、") : "（还没有）"),
       "- 集群花费：$" + (swarm?.cost ?? 0).toFixed(4) + " / 预算 $" + (swarm?.budget ?? 0).toFixed(2),

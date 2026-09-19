@@ -21,6 +21,7 @@ import {
 } from "../src/agent/gitworkspace.ts";
 import { WORKSPACE_ROOT } from "../src/config.ts";
 import { EventStore } from "../src/eventstore.ts";
+import { detectHandoffs, fileVersionLines, handoffMailText } from "../src/agent/versions.ts";
 
 let pass = 0;
 let fail = 0;
@@ -140,6 +141,44 @@ rmSync(storeHome, { recursive: true, force: true });
 wipe();
 
 console.log("");
+console.log("");
+console.log("=== 换手播报 / 现场版本行（纯函数）===");
+const fakeFiles = [
+  {
+    path: "p2482.cpp",
+    lastAgent: "amy",
+    lastCommit: "aaa2222",
+    lastTime: "2026-01-01T00:00:02Z",
+    writers: [
+      { agent: "amy", count: 2 },
+      { agent: "bob", count: 1 },
+    ],
+    commits: [
+      { commit: "aaa1111", agent: "amy", tool: "write", bytes: 10, time: "2026-01-01T00:00:01Z" },
+      { commit: "aaa2222", agent: "amy", tool: "bash", bytes: 11, time: "2026-01-01T00:00:02Z" },
+      { commit: "bbb1111", agent: "bob", tool: "bash", bytes: 12, time: "2026-01-01T00:00:03Z" },
+    ],
+  },
+];
+const changed = [{ path: "p2482.cpp" }, { path: "brand-new.cpp" }];
+const handoffs = detectHandoffs(fakeFiles, changed, "carl");
+ok(handoffs.length === 1, "换手只报 1 条（新文件不算），实得 " + String(handoffs.length));
+ok(handoffs[0] !== undefined && handoffs[0].prevAgent === "amy", "换手的上一版作者是最新写者 amy");
+ok(detectHandoffs(fakeFiles, changed, "amy").length === 0, "自己接着写自己的文件 -> 不报换手");
+ok(detectHandoffs([], changed, "carl").length === 0, "没有任何留档 -> 不报换手");
+
+const mail = handoffMailText({ path: "p2482.cpp", prevAgent: "amy", prevCommit: "aaa2222", agent: "carl" });
+ok(mail.subject.includes("p2482.cpp") && mail.subject.includes("carl"), "通知标题带文件名和新作者");
+ok(mail.body.includes("git show aaa2222:p2482.cpp"), "通知正文给了取回自己那版的命令");
+ok(mail.body.includes("git diff aaa2222 HEAD -- p2482.cpp"), "通知正文给了看差异的命令");
+ok(mail.body.includes("不用管这封"), "通知没有命令对方改回来（不做裁判）");
+
+const vlines = fileVersionLines(fakeFiles, "bob");
+ok(vlines.length === 1 && vlines[0].includes("你写过 1 次"), "现场行：bob 写过 1 次");
+ok(vlines[0].includes("bbb1111"), "现场行：带上自己那版的版本号");
+ok(vlines[0].includes("别人动过 2 次"), "现场行：别人动过 2 次");
+ok(fileVersionLines(fakeFiles, "dave")[0].includes("你没写过"), "没写过的人看到「你没写过」");
+
 console.log("（" + String(pass) + " 通过 / " + String(fail) + " 失败）");
 process.exit(fail === 0 ? 0 : 1);
 

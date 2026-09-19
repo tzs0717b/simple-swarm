@@ -138,6 +138,11 @@ export const SWARM_SLICES = (process.env.SWARM_SLICES ?? "")
  * 故意不放在 data/ 下面：data/ 是事件账本，npm run reset 会整个删掉，
  * 而智能体干出来的产物不该跟着账本一起消失。
  */
+/** 文件换手播报：同一（文件, 上一版作者, 新作者）组合的节流窗口（毫秒）。 */
+export const SWARM_HANDOFF_THROTTLE_MS = Math.max(0, Number(process.env.SWARM_HANDOFF_THROTTLE_MS ?? 120000));
+/** 单轮最多播报几次换手（别把邮箱刷爆）。 */
+export const SWARM_HANDOFF_MAIL_CAP = Math.max(0, Number(process.env.SWARM_HANDOFF_MAIL_CAP ?? 12));
+
 export const WORKSPACE_ROOT = path.resolve(process.env.SWARM_WORKSPACE ?? path.join(process.cwd(), "workspace"));
 /** 单条 bash 命令最多跑多久 */
 export const BASH_TIMEOUT_MS = envInt("BASH_TIMEOUT_MS", 30_000);
