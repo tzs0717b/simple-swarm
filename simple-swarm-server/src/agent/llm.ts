@@ -264,6 +264,28 @@ export function toDecision(name: string, rawArgs: string): Decision {
       const evidence = str(args.evidence);
       return slice === undefined ? bad() : { tool: "complete_slice", slice, evidence: evidence ?? "" };
     }
+      case "challenge": {
+        const target = str(args.target);
+        const kind = str(args.kind);
+        const claim = str(args.claim);
+        const evidence = str(args.evidence);
+        const ask = str(args.ask);
+        if (!target || !kind || !claim || !evidence || !ask) return bad();
+        return { tool: "challenge", target, kind, claim, evidence, ask, slice: str(args.slice) ?? "" };
+      }
+      case "respond_challenge": {
+        const id = str(args.id);
+        const response = str(args.response);
+        if (!id || !response) return bad();
+        return { tool: "respond_challenge", id, response, evidence: str(args.evidence) ?? "" };
+      }
+      case "rule_challenge": {
+        const rid = str(args.id);
+        const verdict = str(args.verdict);
+        const reason = str(args.reason);
+        if (!rid || !verdict || !reason) return bad();
+        return { tool: "rule_challenge", id: rid, verdict, reason, evidence: str(args.evidence) ?? "" };
+      }
     case "done": {
       const reason = str(args.reason);
       const confirm = str(args.confirm);

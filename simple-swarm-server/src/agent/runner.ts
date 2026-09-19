@@ -45,6 +45,7 @@ import { clock, messageId } from "../time.ts";
 import { FIX_PREFIX, REVERIFY_PREFIX, isVerificationSlice, reverifyName, verdictOf } from "../verify.ts";
 import type { AgentStop, IncompleteStop, SliceInfo, TraceEventData, TraceType } from "../types.ts";
 import type { Brain, BrainContext, Decision, StepUsage } from "./brain.ts";
+import { sweepChallenges } from "../challenges.ts";
 import {
   toolArchive,
   toolBash,
@@ -67,6 +68,7 @@ import {
   type ToolResult,
 } from "./tools.ts";
 import { workspaceOf } from "./workspace.ts";
+import { toolChallenge, toolRespondChallenge, toolRuleChallenge } from "./tools.ts";
 
 export interface RunnerOptions {
   store: EventStore;
@@ -611,6 +613,14 @@ export class AgentRunner {
 
         }
 
+        /* 质疑闸：超过宽限期没人回应的质疑 → 沉默即认账，按成立处理并改板。
+           放在每人之前，和墙钟闸同一层，保证整轮一定会被扫到。 */
+        try {
+          const expired = sweepChallenges(this.store, this.swarmId);
+          if (expired > 0) this.appendSystemTrace("system", "质疑超时 " + String(expired) + " 条 → 按成立处理并改板");
+        } catch (error) {
+          console.error("[runner] 质疑扫描失败:", error);
+        }
         const step = await this.turnWithRetry(agent, swarm.name, this.modelFor(agent, swarm.model), this.goalOf());
         turns[agent] = (turns[agent] ?? 0) + 1;
         report.push(step);
@@ -1493,6 +1503,12 @@ export class AgentRunner {
         if (!claimed.refused) this.claimStep.set(decision.slice, this.steps);
         return claimed;
       }
+      case "challenge":
+        return toolChallenge(ctx, decision);
+      case "respond_challenge":
+        return toolRespondChallenge(ctx, decision);
+      case "rule_challenge":
+        return toolRuleChallenge(ctx, decision);
       case "handoff":
         return toolHandoff(ctx, decision);
       case "release_slice":

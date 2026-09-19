@@ -2,7 +2,7 @@ import { appendFile, mkdir, readFile, readdir, writeFile } from "node:fs/promise
 import path from "node:path";
 import { addressOf, expandRecipients, localOf, type SwarmRoster } from "./mail.ts";
 import { isBroadcast, STORM, withinWindow } from "./storm.ts";
-import type { AgentStop } from "./types.ts";
+import type { AgentStop, ChallengeInfo } from "./types.ts";
 import type {
   AgentInfo,
   MailData,
@@ -75,6 +75,9 @@ export class EventStore {
     string,
     Map<string, { status: "available" | "claimed" | "completed"; claimedBy: string; evidence: string }>
   >();
+
+  /* 质疑：id → ChallengeInfo。一等账本对象，见 types.ts 的 ChallengeInfo 注释。 */
+  private readonly challenges = new Map<string, Map<string, ChallengeInfo>>();
   /** 撞过的切片：谁跟谁抢过（first-wins 的账）。智能体靠它"别重复撞同一片"。 */
   private readonly collisions = new Map<string, { slice: string; holders: string[]; verdict: string }[]>();
   /** 邮箱投影：address → MailboxState（含 per-mail 索引） */
@@ -344,6 +347,19 @@ export class EventStore {
         if (!existing.has(event.slice)) {
           existing.set(event.slice, { status: "available", claimedBy: "", evidence: "" });
         }
+        break;
+      }
+      case "challenge.raised":
+      case "challenge.answered":
+      case "challenge.resolved":
+      case "challenge.expired": {
+        /* 质疑状态机：后到的同 id 事件覆盖前面的（幂等，重放安全）。 */
+        let cm = this.challenges.get(event.challenge.swarmId);
+        if (!cm) {
+          cm = new Map();
+          this.challenges.set(event.challenge.swarmId, cm);
+        }
+        cm.set(event.challenge.id, event.challenge);
         break;
       }
       case "claim.taken": {
@@ -777,6 +793,20 @@ export class EventStore {
       claimedBy: info.claimedBy,
       evidence: info.evidence,
     }));
+  }
+
+  /** 质疑：某集群全部质疑（按提出时间有序）。 */
+  listChallenges(swarmId: string): ChallengeInfo[] {
+    const map = this.challenges.get(swarmId);
+    if (!map) return [];
+    return [...map.values()].sort((a, b) => (a.time < b.time ? -1 : a.time > b.time ? 1 : 0));
+  }
+
+  /** 质疑：某 agent 收到的、还没回应的质疑（催他回应用）。 */
+  openChallengesFor(swarmId: string, agent: string): ChallengeInfo[] {
+    return this.listChallenges(swarmId).filter(
+      (c) => c.status === "open" && (c.target === agent || c.target === "all"),
+    );
   }
 
   /** 看板：某集群某切片的当前状态 */

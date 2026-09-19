@@ -19,6 +19,7 @@ import { isRefusal, mailSharedClaimLine, sendMail } from "../send.ts";
 import { clock } from "../time.ts";
 import type { AgentStop, TraceType } from "../types.ts";
 import { displayPath, resolveInWorkspace, workspaceOf } from "./workspace.ts";
+import { raiseChallenge, answerChallenge, ruleChallenge, challengeQuotaLeft } from "../challenges.ts";
 
 export interface ToolContext {
   store: EventStore;
@@ -821,4 +822,101 @@ export const SWARMKIT: ToolSpec[] = [
       required: ["reason", "confirm"],
     },
   },
+  {
+    name: "challenge",
+    help:
+      "质疑：对**派工员切的板**或对同伴的产物/交付说明提出带证据的公开质询。被质疑者必须在宽限期内回应（不回应=认账，自动成立）；裁决成立后系统会**真的改板**：重开那片，或按你的 ask 新增一片。每人 3 次配额，被驳回才扣一格。空口质疑不受理 —— 必须带命令、实测数字、文件加行号。",
+    parameters: {
+      type: "object",
+      properties: {
+        target: { type: "string", description: "质疑谁：agent 名字，或 slicer（派工员写的板），或 all" },
+        kind: { type: "string", description: "slicer | artifact | evidence | duplicate" },
+        claim: { type: "string", description: "一句话主张：你认为哪里不对" },
+        evidence: { type: "string", description: "证据：命令、实测数字、文件加行号 —— 空口质疑无效" },
+        ask: { type: "string", description: "你要对方做的可执行最小动作" },
+        slice: { type: "string", description: "可选：相关的片名" },
+      },
+      required: ["target", "kind", "claim", "evidence", "ask"],
+    },
+  },
+  {
+    name: "respond_challenge",
+    help: "回应针对你的质疑（被质疑者的义务）。不回应会在宽限期后自动按「认账」成立并改板。",
+    parameters: {
+      type: "object",
+      properties: {
+        id: { type: "string", description: "质疑编号（#后面那 6 位）" },
+        response: { type: "string", description: "你的回应：认账就说怎么改，不认就说为什么" },
+        evidence: { type: "string", description: "可选：支撑你回应的实测证据" },
+      },
+      required: ["id", "response"],
+    },
+  },
+  {
+    name: "rule_challenge",
+    help: "第三方裁决一条质疑（verdict=upheld 成立 / dismissed 驳回）。质疑者和被质疑者自己判无效；成立会真的改板（重开那片或按 ask 新增一片），驳回则质疑者扣一格配额。",
+    parameters: {
+      type: "object",
+      properties: {
+        id: { type: "string", description: "质疑编号" },
+        verdict: { type: "string", description: "upheld | dismissed" },
+        reason: { type: "string", description: "裁决理由" },
+        evidence: { type: "string", description: "可选：你实测出来的依据" },
+      },
+      required: ["id", "verdict", "reason"],
+    },
+  },
 ];
+
+
+/* ── 质疑（challenge）：设计说明见 src/challenges.ts ── */
+
+export function toolChallenge(
+  ctx: ToolContext,
+  input: { target: string; kind: string; claim: string; evidence: string; ask: string; slice?: string },
+): ToolResult {
+  const r = raiseChallenge(ctx.store, {
+    swarmId: ctx.swarmId,
+    by: ctx.agent,
+    target: String(input.target ?? ""),
+    kind: String(input.kind ?? ""),
+    slice: String(input.slice ?? ""),
+    claim: String(input.claim ?? ""),
+    evidence: String(input.evidence ?? ""),
+    ask: String(input.ask ?? ""),
+  });
+  return {
+    observation: r.message + "（你的质疑配额：还剩 " + String(challengeQuotaLeft(ctx.store, ctx.swarmId, ctx.agent)) + " 次）",
+    detail: r.ok ? "提出质疑" : "质疑被拒",
+    refused: !r.ok,
+  };
+}
+
+export function toolRespondChallenge(
+  ctx: ToolContext,
+  input: { id: string; response: string; evidence?: string },
+): ToolResult {
+  const r = answerChallenge(ctx.store, {
+    swarmId: ctx.swarmId,
+    id: String(input.id ?? "").replace(/^#/, "").trim(),
+    agent: ctx.agent,
+    response: String(input.response ?? ""),
+    evidence: String(input.evidence ?? ""),
+  });
+  return { observation: r.message, detail: r.ok ? "回应质疑" : "回应被拒", refused: !r.ok };
+}
+
+export function toolRuleChallenge(
+  ctx: ToolContext,
+  input: { id: string; verdict: string; reason: string; evidence?: string },
+): ToolResult {
+  const r = ruleChallenge(ctx.store, {
+    swarmId: ctx.swarmId,
+    id: String(input.id ?? "").replace(/^#/, "").trim(),
+    agent: ctx.agent,
+    verdict: String(input.verdict ?? ""),
+    reason: String(input.reason ?? ""),
+    evidence: String(input.evidence ?? ""),
+  });
+  return { observation: r.message, detail: r.ok ? "裁决质疑" : "裁决被拒", refused: !r.ok };
+}

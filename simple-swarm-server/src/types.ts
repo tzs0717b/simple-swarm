@@ -128,6 +128,47 @@ export interface SliceInfo {
 }
 
 /*
+ * 质疑（challenge）：agent 之间的公开质询，也包括对**派工员**的质询。
+ *
+ * 为什么做成一等账本对象而不是普通邮件：邮件可以被无视，质疑必须有「回应义务」和「裁决」才有牙齿。
+ *   challenge.raised → challenge.answered（被质疑者回应）→ challenge.resolved（第三方裁决）
+ * 超过 SWARM_CHALLENGE_GRACE 轮无人回应 → challenge.expired，按「沉默即认账」记作 upheld。
+ * 裁决人必须既不是 by 也不是 target（自审无效，机械判定）。
+ *
+ * 与 doneGate 的关系：doneGate 是系统打回「没干完就想收工」，质疑是它的推广 ——
+ * 让同伴也能打回，包括打回派工员切错的片。
+ */
+export interface ChallengeInfo {
+  id: string;
+  swarmId: string;
+  /** 质疑者（裸名字） */
+  by: string;
+  /** 被质疑者：agent 裸名，或 "slicer"（派工员切的板），或 "all" */
+  target: string;
+  /** slicer=片切得不对 ｜ artifact=产物不合规 ｜ evidence=交付说明与事实不符 ｜ duplicate=重复劳动 */
+  kind: "slicer" | "artifact" | "evidence" | "duplicate";
+  /** 被质疑的片名（可空） */
+  slice: string;
+  /** 一句话主张：你认为哪里不对 */
+  claim: string;
+  /** 证据：命令、数字、文件加行号 —— 空口质疑无效 */
+  evidence: string;
+  /** 你要求对方做的**可执行最小动作** */
+  ask: string;
+  status: "open" | "answered" | "upheld" | "dismissed" | "expired";
+  response: string;
+  responseEvidence: string;
+  /** 裁决人（既不是质疑者也不是被质疑者） */
+  ruledBy: string;
+  verdict: string;
+  /** 展示用时间（HH:MM:SS，和账本其余事件同口径） */
+  time: string;
+  /** 真实 epoch 毫秒 —— 只给宽限期计时用。clock() 返回 HH:MM:SS 根本算不出年龄，
+      2026-09-19 自检抓到这个坑：光靠 time 字段宽限期永远不会触发。 */
+  raisedAt: number;
+}
+
+/*
  * 行为流的类型 = **真实工具名**（M8 改）。
  *
  * 之前是 thinking/edit/post/inbox 这套抽象概念 —— 智能体明明只是发了封邮件或认领了切片，
@@ -390,6 +431,11 @@ export type SwarmEventPayload =
   | { type: "slice.completed"; swarmId: string; slice: string; agent: string; evidence: string; time: string }
   /* 切片生成器（系统）：往板上放一片细粒度的活，摆着等 agent 来认领。
      与 publish_slice 的区别是它**不认领** —— 系统只切活，不替 agent 选活。 */
+    /* 质疑（见 ChallengeInfo）：raised → answered → resolved / expired，投影里推进状态机。 */
+    | { type: "challenge.raised"; challenge: ChallengeInfo }
+    | { type: "challenge.answered"; challenge: ChallengeInfo }
+    | { type: "challenge.resolved"; challenge: ChallengeInfo }
+    | { type: "challenge.expired"; challenge: ChallengeInfo }
   | { type: "slice.added"; swarmId: string; slice: string; by: string; time: string };
 
 /** 事件归属的集群（用于 WS 定向推送）；全局事件返回 undefined → 广播给所有订阅者。 */
