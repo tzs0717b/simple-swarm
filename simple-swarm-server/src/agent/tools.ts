@@ -768,7 +768,7 @@ export const SWARMKIT: ToolSpec[] = [
   },
   {
     name: "publish_slice",
-    help: "发布一条你要做的工作（发布即认领）。认领板上没有你要做的事，就自己发布一条 —— 工作不是别人替你切好的。名字写具体，比如「写 hello.py 并跑通」。",
+    help: "发布一条你要做的工作（发布即认领）。名字要具体，并且**自带完成标准**，比如「写 hello.py 并跑通 python3 hello.py 输出 hello」。板上没有你要做的事就自己发布 —— 工作不是别人替你切好的。",
     parameters: { type: "object", properties: { slice: { type: "string", description: "切片名，写具体一点" } }, required: ["slice"] },
   },
   {

@@ -78,6 +78,14 @@ export const SWARM_DONE_ASK_GRACE_MS = Number(process.env.SWARM_DONE_ASK_GRACE_M
 export const SWARM_WALL_BROADCAST = process.env.SWARM_WALL_BROADCAST !== "0";
 /** 切片生成器：开跑前先按目标切细粒度切片摆到板上（设 0 关掉） */
 export const SWARM_SLICER = (process.env.SWARM_SLICER ?? "1") !== "0";
+
+/* 协商立板（2026-09-19，用户口径）：去掉派工员，让 agent 自己广播商量分工。
+   默认开；关掉退回旧的「/run 时由外部 LLM 派工」。 */
+export const SWARM_NEGOTIATE_BOARD = (process.env.SWARM_NEGOTIATE_BOARD ?? "1") !== "0";
+/* 立板截止（墙钟比例）：到这个点板上还是 0 片 → 系统才用保底切法兜底。 */
+export const SWARM_BOARD_DEADLINE_FRACTION = Number(process.env.SWARM_BOARD_DEADLINE_FRACTION ?? "0.3");
+/* 目标全文给 agent 的字符上限。旧值 120 只够一句话 —— 让它自己立板就必须看全题。 */
+export const SWARM_GOAL_CHARS = envInt("SWARM_GOAL_CHARS", 4000);
 /** 验收闭环（P1）：验收片必须给结论、FAIL 退回板上、收工前要有"改动之后的 PASS" */
 /** 独立复检（用户口径 2026-09-18）：关键片一交付，系统立刻开复检片并点名一个**别人**接手。
  *  依据：exp-10~12 里"自己说自己验过了"直接放行，出现过假验证（工具根本不渲染动画，逐像素差照样 0）。 */

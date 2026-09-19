@@ -17,7 +17,6 @@
  * 收工时在 confirm 里写清为什么判定 OK。
  */
 import { readdirSync, statSync } from "node:fs";
-import { SWARM_RUN_MAX_MS, SWARM_PROTOTYPE_FRACTION, SWARM_INBOX_GATE, SWARM_PROTOTYPE_MIN_BUDGET, SWARM_PROTOTYPE_BUDGET } from "../config.ts";
 import {
   LLM_FAILOVER_AFTER,
   LLM_FALLBACK_MODELS,
@@ -46,6 +45,8 @@ import { FIX_PREFIX, REVERIFY_PREFIX, isVerificationSlice, reverifyName, verdict
 import type { AgentStop, IncompleteStop, SliceInfo, TraceEventData, TraceType } from "../types.ts";
 import type { Brain, BrainContext, Decision, StepUsage } from "./brain.ts";
 import { sweepChallenges } from "../challenges.ts";
+import { SWARM_GOAL_CHARS, SWARM_BOARD_DEADLINE_FRACTION, SWARM_NEGOTIATE_BOARD, SWARM_RUN_MAX_MS, SWARM_PROTOTYPE_FRACTION, SWARM_INBOX_GATE, SWARM_PROTOTYPE_MIN_BUDGET, SWARM_PROTOTYPE_BUDGET } from "../config.ts";
+import { boardDeadlineReached, boardTimeoutText, negotiateKickoffText } from "../board.ts";
 import {
   toolArchive,
   toolBash,
@@ -558,7 +559,7 @@ export class AgentRunner {
         break outer;
       }
       /* 雏形闸：花到预算 SWARM_PROTOTYPE_FRACTION 还没出雏形 -> 系统自己往板上开一片 */
-      this.prototypeGate();
+      await this.negotiationGate(roster);
       for (const agent of roster) {
         if (done.has(agent)) continue;
 
@@ -1361,6 +1362,39 @@ export class AgentRunner {
 
   /* 墙钟进度广播（2026-09-18 实测"干不完"是主要死因：27 分钟还在画部件，没人提醒该收口）。 */
   private wallT0 = 0;
+  /* 协商立板（2026-09-19）：不派工。系统只做两件事 ——
+     开工广播一次（把完整题目和立板规则发到每个人手里），以及到截止点还空板时兜底。 */
+  private boardT0 = 0;
+  private boardKickoff = false;
+  private boardFallback = false;
+  private async negotiationGate(roster: string[]): Promise<void> {
+    if (!SWARM_NEGOTIATE_BOARD || this.boardFallback) return;
+    if (this.boardT0 === 0) this.boardT0 = Date.now();
+    if (this.store.listSlices(this.swarmId).length > 0) return;
+    const budget = SWARM_RUN_MAX_MS > 0 ? SWARM_RUN_MAX_MS : SWARM_PROTOTYPE_BUDGET * 60000;
+    const boardMs = Math.max(60000, Math.round(budget * SWARM_BOARD_DEADLINE_FRACTION));
+    if (!this.boardKickoff) {
+      this.boardKickoff = true;
+      this.mailTeam(
+        "【开工】先立板：这轮的活由你们自己商量分配",
+        negotiateKickoffText(this.swarmId, roster.length, boardMs, this.goalOf()),
+        "claim",
+      );
+      this.appendSystemTrace(
+        "system",
+        "协商立板：已广播开工广播（系统不派工），立板窗口约 " + String(Math.round(boardMs / 60000)) + " 分钟",
+      );
+      return;
+    }
+    if (!boardDeadlineReached(Date.now() - this.boardT0, budget, SWARM_BOARD_DEADLINE_FRACTION)) return;
+    this.boardFallback = true;
+    const { genericSlices } = await import("../slicer.ts");
+    const names = genericSlices(roster.length);
+    for (const name of names) this.store.append({ type: "slice.added", swarmId: this.swarmId, slice: name, by: "system", time: clock() });
+    this.mailTeam("【立板超时】系统已用保底切法兜底", boardTimeoutText(names.length), "claim");
+    this.appendSystemTrace("system", "协商立板：超时兜底，保底切法架了 " + String(names.length) + " 片");
+  }
+
   private wallMarks = new Set<number>();
   private wallClockSweep(): void {
     if (!SWARM_WALL_BROADCAST) return;
@@ -1663,7 +1697,8 @@ export class AgentRunner {
 
   private goalOf(): string {
     const goal = this.store.listMessages(this.swarmId, "primary").find((message) => message.kind === "goal");
-    return goal?.body.slice(0, 120) ?? "";
+    /* 2026-09-19：旧值 120 只够一句话 —— 让 agent 自己立板就必须让它看到完整题目。 */
+    return goal?.body.slice(0, SWARM_GOAL_CHARS) ?? "";
   }
 }
 

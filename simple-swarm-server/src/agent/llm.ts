@@ -584,7 +584,9 @@ export class LlmBrain implements Brain {
       "里面只属于你和这个集群，bash/read/write/edit 都锁在里面，**一律写相对路径**（比如 './hello.py'、'./assets/logo.png'）。",
         "交付物（代码、脚本、图、截图、文档等）请直接放在这里 —— 验证时同事会直接来这个目录复现。",
       "",
-      "【可用工具】",
+        /* 协商立板（2026-09-19）：板还空着 → 把「先立板」提示放进每个人的上下文。 */
+        ...(SWARM_NEGOTIATE_BOARD && ctx.slices.length === 0 ? [boardHintText(0)] : []),
+        "【可用工具】",
       "- bash：在工作目录里跑命令（ls、python3、playwright、PIL 都在）",
       "- read / write / edit：读写工作目录里的文件（相对路径）",
       "- publish_slice / claim_slice / complete_slice：看板流程",

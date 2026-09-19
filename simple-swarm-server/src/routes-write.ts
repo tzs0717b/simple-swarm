@@ -402,6 +402,8 @@ export function registerWriteRoutes(app: FastifyInstance, store: EventStore): vo
     try {
       const outcome = MOCK_LLM
         ? { slices: [] as string[], source: "none" as const, note: "mock 模式跳过切片生成" }
+        : SWARM_NEGOTIATE_BOARD
+        ? { slices: [] as string[], source: "none" as const, note: "协商立板：系统不派工，由 agent 自己广播商量分工" }
         : await seedSlices(store, swarm.id, swarm.goal, {
         model: swarm.model,
         agents: swarm.agents.filter((name) => name !== "system").length,
