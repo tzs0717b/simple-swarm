@@ -98,6 +98,12 @@ export function registerRoutes(app: FastifyInstance, store: EventStore): void {
     return reply.send(store.listClaims(parsed.data.id));
   });
 
+  /* 工作区版本留档（M12）：每个文件谁写过 —— write 工具和 bash heredoc 都算。 */
+  app.get("/api/swarms/:id/files", async (request, reply) => {
+    const id = (request.params as { id: string }).id;
+    return reply.send(store.listFiles(id));
+  });
+
   app.get("/api/swarms/:id/trace", async (request, reply) => {
     const { id } = request.params as { id: string };
     if (!store.getSwarm(id)) return reply.code(404).send({ error: "swarm not found", id });

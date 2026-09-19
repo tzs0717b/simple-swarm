@@ -195,6 +195,9 @@ export type TraceType =
   | "release_slice"
   | "complete_slice"
   | "done"
+  | "challenge"
+  | "respond_challenge"
+  | "rule_challenge"
   /* 不是工具，但确实是发生过的事 */
   | "thinking"
   | "retry"
@@ -424,6 +427,9 @@ export type SwarmEventPayload =
     }
   | { type: "message.posted"; message: MessageData }
   | { type: "trace.appended"; event: TraceEventData }
+  /* 工作区文件留档（git）：每一步之后由**系统**提交。归因靠工作区 diff，
+     所以 agent 用 bash heredoc 写的文件也算数（B10）。 */
+  | { type: "file.written"; swarmId: string; path: string; agent: string; tool: string; bytes: number; commit: string; time: string }
   | { type: "claim.taken"; swarmId: string; agent: string; slice: string }
   | { type: "claim.released"; swarmId: string; agent: string; slice: string }
   | { type: "collision.detected"; swarmId: string; slice: string; holders: string[]; verdict: string }
@@ -462,6 +468,8 @@ export function eventSwarmId(event: SwarmEvent): string | undefined {
     case "swarm.paused":
     case "usage.recorded":
     case "agent.done":
+    case "file.written":
+      return event.swarmId;
     case "claim.taken":
     case "claim.released":
     case "collision.detected":

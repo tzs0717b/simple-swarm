@@ -65,10 +65,10 @@ import {
   toolReply,
   toolSendMail,
   toolWriteFile,
-  type ToolContext,
   type ToolResult,
 } from "./tools.ts";
 import { workspaceOf } from "./workspace.ts";
+import { commitStep } from "./gitworkspace.ts";
 import { toolChallenge, toolRespondChallenge, toolRuleChallenge } from "./tools.ts";
 
 export interface RunnerOptions {
@@ -1247,7 +1247,7 @@ export class AgentRunner {
         "先别交付：这一片还没交接给别人，队友不知道有这活、也不知道怎么验收。请先发一封交接信 ——" +
         "收件人写队友地址（或直接群发 all@" + this.swarmId + ".swarm），正文照这个格式三行：" + "\n" +
         "  ① 做了什么：改了哪个文件 / 哪个组 id（别人要能直接找到）" + "\n" +
-        "  ② 怎么验：一条能跑的命令，或肉眼能看的检查点（例如某个函数应该返回什么、某个文件里应该有哪一行、某个数值应该落在什么区间）" + chr(10) +
+        "  ② 怎么验：一条能跑的命令，或肉眼能看的检查点（例如某个函数应该返回什么、某个文件里应该有哪一行、某个数值应该落在什么区间）" + "\n" +
         "  ③ 风险 / 没做完：哪里可能有问题、哪里偷懒了" + "\n" +
         "发完再 complete_slice。已经交付过的片不会因为这条被卡第二次。",
       detail: "交付被挡：还没发交接信（已交付 " + deliveredMine + " 片 / 已发交接信 " + handedOff + " 封）",
@@ -1599,6 +1599,32 @@ export class AgentRunner {
     }
   }
 
+  /**
+   * 工作区版本留档：提交一次 + 落 file.written 事件。
+   * 任何失败都只是少一条记录，绝不能打断跑（所以整段吞异常）。
+   */
+  private commitWorkspace(agent: string, tool: string, result: ToolResult): void {
+    try {
+      const goal = this.store.getSwarm(this.swarmId)?.goal ?? "";
+      const commit = commitStep(this.swarmId, agent, tool, result.detail ?? "", goal);
+      if (!commit || commit.changed.length === 0) return;
+      for (const change of commit.changed) {
+        this.store.append({
+          type: "file.written",
+          swarmId: this.swarmId,
+          path: change.path,
+          agent,
+          tool,
+          bytes: change.bytes,
+          commit: commit.commit,
+          time: clock(),
+        });
+      }
+    } catch {
+      /* 留档失败不能影响跑 */
+    }
+  }
+
   /** 大脑和工具看到的现场：全部来自事件账本，没有隐藏状态（所以重放后决定一致） */
   private context(agent: string, swarmName: string, goal: string, model?: string): BrainContext {
     const swarm = this.store.getSwarm(this.swarmId);
@@ -1657,6 +1683,9 @@ export class AgentRunner {
       status: result.refused || result.error ? "error" : "ok",
     };
     this.store.append({ type: "trace.appended", event: trace });
+    /* 工作区版本留档（M12）：每一步之后由**系统**提交。
+       归因靠工作区 diff —— agent 用 bash heredoc 写的文件也跑不掉（B2/B10 的教训）。 */
+    this.commitWorkspace(agent, tool, result);
     this.store.append({
       type: "usage.recorded",
       swarmId: this.swarmId,

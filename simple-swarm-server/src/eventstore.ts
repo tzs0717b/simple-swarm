@@ -26,6 +26,26 @@ interface MailboxState extends Mailbox {
 }
 
 /** 退信记录（派生，不进 MailData） */
+/** 工作区文件留档（git）：谁写过、写了几次、最新一版是哪个提交。 */
+export interface FileRecord {
+  path: string;
+  lastAgent: string;
+  lastCommit: string;
+  lastTime: string;
+  writers: Map<string, number>;
+  commits: { commit: string; agent: string; tool: string; bytes: number; time: string }[];
+}
+
+/** 对外（HTTP）的文件留档视图。 */
+export interface FileInfo {
+  path: string;
+  lastAgent: string;
+  lastCommit: string;
+  lastTime: string;
+  writers: { agent: string; count: number }[];
+  commits: { commit: string; agent: string; tool: string; bytes: number; time: string }[];
+}
+
 export interface MailBounce {
   mailId: string;
   recipient: string;
@@ -81,6 +101,8 @@ export class EventStore {
   /** 撞过的切片：谁跟谁抢过（first-wins 的账）。智能体靠它"别重复撞同一片"。 */
   private readonly collisions = new Map<string, { slice: string; holders: string[]; verdict: string }[]>();
   /** 邮箱投影：address → MailboxState（含 per-mail 索引） */
+  /* 工作区文件留档（git）：path → 谁写过、写了几次、最新提交（M12） */
+  private readonly files = new Map<string, Map<string, FileRecord>>();
   private readonly mailboxes = new Map<string, MailboxState>();
   /** 邮件本体：一份存储（mailId → MailData） */
   private readonly mails = new Map<string, MailData>();
@@ -360,6 +382,39 @@ export class EventStore {
           this.challenges.set(event.challenge.swarmId, cm);
         }
         cm.set(event.challenge.id, event.challenge);
+        break;
+      }
+      case "file.written": {
+        let byPath = this.files.get(event.swarmId);
+        if (!byPath) {
+          byPath = new Map<string, FileRecord>();
+          this.files.set(event.swarmId, byPath);
+        }
+        let record = byPath.get(event.path);
+        if (!record) {
+          record = {
+            path: event.path,
+            lastAgent: "",
+            lastCommit: "",
+            lastTime: "",
+            writers: new Map<string, number>(),
+            commits: [],
+          };
+          byPath.set(event.path, record);
+        }
+        record.lastAgent = event.agent;
+        record.lastCommit = event.commit;
+        record.lastTime = event.time;
+        record.writers.set(event.agent, (record.writers.get(event.agent) ?? 0) + 1);
+        record.commits.push({
+          commit: event.commit,
+          agent: event.agent,
+          tool: event.tool,
+          bytes: event.bytes,
+          time: event.time,
+        });
+        /* 只留最近 400 条，长跑集群不然会一直涨 */
+        if (record.commits.length > 400) record.commits.splice(0, record.commits.length - 400);
         break;
       }
       case "claim.taken": {
@@ -781,6 +836,24 @@ export class EventStore {
   /** 这个 id 是否**曾经**用过（含已删除的集群）—— 建集群时用来保证 id 永不重用 */
   hasEverHadSwarm(id: string): boolean {
     return this.everCreated.has(id) || this.swarms.has(id);
+  }
+
+  /** 工作区版本留档：某集群每个文件谁写过（write 工具和 bash heredoc 都算）。 */
+  listFiles(swarmId: string): FileInfo[] {
+    const byPath = this.files.get(swarmId);
+    if (!byPath) return [];
+    return [...byPath.values()]
+      .map((record) => ({
+        path: record.path,
+        lastAgent: record.lastAgent,
+        lastCommit: record.lastCommit,
+        lastTime: record.lastTime,
+        writers: [...record.writers.entries()]
+          .map(([agent, count]) => ({ agent, count }))
+          .sort((a, b) => b.count - a.count),
+        commits: record.commits.slice(-50),
+      }))
+      .sort((a, b) => (a.lastTime < b.lastTime ? 1 : -1));
   }
 
   /** 看板：某集群所有切片的当前状态 */

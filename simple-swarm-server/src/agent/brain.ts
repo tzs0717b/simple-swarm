@@ -49,6 +49,10 @@ export type Decision =
   | { tool: "read"; path: string; offset?: number; limit?: number }
   | { tool: "write"; path: string; content: string }
   | { tool: "edit"; path: string; old: string; new: string }
+  /* 质疑机制（B 组）：提案 / 回应 / 裁决 —— 之前这三条只在 llm 侧存在，联合里漏了 */
+  | { tool: "challenge"; target: string; kind: string; claim: string; evidence: string; ask: string; slice?: string }
+  | { tool: "respond_challenge"; id: string; response: string; evidence?: string }
+  | { tool: "rule_challenge"; id: string; verdict: string; reason: string; evidence?: string }
   /* 模型说了个不存在的工具：不能崩，要把这条当成可观察的失败还给它去纠正 */
   | { tool: "unknown"; name: string };
 

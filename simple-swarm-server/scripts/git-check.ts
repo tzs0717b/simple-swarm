@@ -1,0 +1,145 @@
+/*
+ * 工作区 git 留档自检（M12）
+ * 跑法：node scripts/git-check.ts
+ *
+ * 验的是「系统每步自动提交」这套东西本身：
+ * 建仓、归因（含 bash 通道）、覆盖后历史仍在、二进制不进库、.git 被删也能从影子仓库恢复。
+ */
+import { execFileSync } from "node:child_process";
+import { mkdtempSync } from "node:fs";
+import os from "node:os";
+import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import path from "node:path";
+import {
+  GIT_MIRROR_ROOT,
+  TASK_FILE,
+  commitStep,
+  ensureRepo,
+  fileHistory,
+  headSha,
+  trackedFiles,
+} from "../src/agent/gitworkspace.ts";
+import { WORKSPACE_ROOT } from "../src/config.ts";
+import { EventStore } from "../src/eventstore.ts";
+
+let pass = 0;
+let fail = 0;
+
+function ok(cond: boolean, label: string): void {
+  if (cond) {
+    pass += 1;
+    console.log("  ✅ " + label);
+  } else {
+    fail += 1;
+    console.log("  ❌ " + label);
+  }
+}
+
+function gitAt(cwd: string, args: string[]): string {
+  try {
+    return String(execFileSync("git", args, { cwd, stdio: ["ignore", "pipe", "pipe"] })).trim();
+  } catch {
+    return "";
+  }
+}
+
+const ID = "gitcheck-selftest";
+const WS = path.join(WORKSPACE_ROOT, ID);
+const MIRROR = path.join(GIT_MIRROR_ROOT, ID + ".git");
+const TASK = "【任务】自检用题面：写一个 a.cpp。";
+
+function wipe(): void {
+  rmSync(WS, { recursive: true, force: true });
+  rmSync(MIRROR, { recursive: true, force: true });
+}
+
+wipe();
+
+console.log("");
+console.log("=== 建仓 ===");
+ok(ensureRepo(ID, TASK) === true, "ensureRepo 成功");
+ok(existsSync(path.join(WS, ".git")), "工作区里有 .git");
+ok(existsSync(path.join(WS, TASK_FILE)), "原始题面落成 " + TASK_FILE);
+ok(readFileSync(path.join(WS, TASK_FILE), "utf8").includes("自检用题面"), TASK_FILE + " 内容就是题面原文");
+ok(existsSync(path.join(WS, ".gitignore")), "生成了 .gitignore");
+
+console.log("");
+console.log("=== 每步提交 + 归因 ===");
+const c1 = commitStep(ID, "amy", "write", "写入 a.cpp", TASK);
+ok(c1 !== null, "第一次提交发生了（题面/.gitignore 入库）");
+writeFileSync(path.join(WS, "a.cpp"), "int main(){return 0;}\n", "utf8");
+const c2 = commitStep(ID, "amy", "write", "写入 a.cpp（121 字符）");
+ok(c2 !== null && c2.changed.some((c) => c.path === "a.cpp"), "amy 写 a.cpp 被提交且归因到 a.cpp");
+ok(c2 !== null && c2.commit.length >= 4, "拿到了短 sha");
+const sha2 = headSha(ID);
+ok(sha2 !== "" && sha2 === (c2 ? c2.commit : ""), "headSha 与提交返回一致");
+
+/* 覆盖写：bob 直接改 amy 的文件（模拟"改别人的文件"） */
+writeFileSync(path.join(WS, "a.cpp"), "int main(){/*bob*/return 0;}\n", "utf8");
+writeFileSync(path.join(WS, "b.txt"), "bob 的笔记\n", "utf8");
+const c3 = commitStep(ID, "bob", "bash", "$ cat > a.cpp << 'EOF'");
+ok(c3 !== null && c3.changed.some((c) => c.path === "a.cpp"), "bob 覆盖 a.cpp 也被提交");
+ok(c3 !== null && c3.changed.some((c) => c.path === "b.txt"), "b.txt 一起提交");
+ok(headSha(ID) !== sha2, "HEAD 前进了");
+
+const hist = fileHistory(ID, "a.cpp");
+ok(hist.length === 2, "a.cpp 有 2 条历史（amy + bob），实得 " + String(hist.length));
+ok(hist.some((h) => h.agent === "amy") && hist.some((h) => h.agent === "bob"), "两条历史的作者分别是 amy 和 bob");
+const subject = gitAt(WS, ["log", "-1", "--pretty=%s"]);
+ok(subject.includes("bob"), "提交信息里署了 bob 的名");
+
+console.log("");
+console.log("=== 二进制 / 超大文件不进库 ===");
+writeFileSync(path.join(WS, "data.bin"), Buffer.from([0, 1, 2, 0, 0, 255, 254, 0, 9, 9]));
+const big = "x".repeat(300 * 1024);
+writeFileSync(path.join(WS, "big.dat"), big, "utf8");
+const c4 = commitStep(ID, "carl", "bash", "$ g++ -o data.bin a.cpp; head -c 300k /dev/zero > big.dat");
+ok(c4 !== null && c4.skipped.includes("data.bin"), "二进制被跳过（skipped 里有 data.bin）");
+ok(c4 !== null && c4.skipped.includes("big.dat"), "超大文件被跳过");
+const tracked = trackedFiles(ID);
+ok(!tracked.includes("data.bin") && !tracked.includes("big.dat"), "两者都没被跟踪");
+ok(readFileSync(path.join(WS, ".gitignore"), "utf8").includes("data.bin"), "被跳过的路径写进了 .gitignore（不会反复变脏）");
+
+console.log("");
+console.log("=== 没变化就不提交（省 git 调用）===");
+const c5 = commitStep(ID, "dave", "thinking", "想了想");
+ok(c5 === null, "工作区没动 -> 不提交");
+
+console.log("");
+console.log("=== .git 被删也能救回来（影子仓库）===");
+ok(existsSync(MIRROR), "工作区外有影子裸仓库");
+rmSync(path.join(WS, ".git"), { recursive: true, force: true });
+ok(!existsSync(path.join(WS, ".git")), "已模拟 agent 把 .git 删掉");
+writeFileSync(path.join(WS, "c.txt"), "erin 的文件\n", "utf8");
+const c6 = commitStep(ID, "erin", "write", "写入 c.txt");
+ok(existsSync(path.join(WS, ".git")), "下次提交时 .git 自动重建");
+ok(c6 !== null, "重建后照样能提交");
+const histAfter = fileHistory(ID, "a.cpp");
+ok(histAfter.length === 2, "历史从影子仓库恢复了（a.cpp 还是 2 条），实得 " + String(histAfter.length));
+ok(histAfter.some((h) => h.agent === "amy"), "恢复出来的历史仍带着 amy 那次");
+
+console.log("");
+console.log("=== 投影 / listFiles（用真 EventStore，不碰真账本）===");
+const storeHome = path.join(os.tmpdir(), "gitcheck-store-" + String(Date.now()));
+mkdtempSync(storeHome);
+const store = new EventStore(storeHome);
+store.append({ type: "file.written", swarmId: "st", path: "a.cpp", agent: "amy", tool: "write", bytes: 10, commit: "aaa1111", time: "2026-01-01T00:00:01Z" });
+store.append({ type: "file.written", swarmId: "st", path: "a.cpp", agent: "bob", tool: "bash", bytes: 20, commit: "bbb2222", time: "2026-01-01T00:00:02Z" });
+store.append({ type: "file.written", swarmId: "st", path: "t.sh", agent: "amy", tool: "write", bytes: 5, commit: "ccc3333", time: "2026-01-01T00:00:03Z" });
+const files = store.listFiles("st");
+ok(files.length === 2, "两个文件各有留档（a.cpp / t.sh）");
+const arow = files.find((f) => f.path === "a.cpp");
+ok(arow !== undefined && arow.lastAgent === "bob", "a.cpp 的最新写者是 bob");
+ok(arow !== undefined && arow.lastCommit === "bbb2222", "a.cpp 的最新提交是 bbb2222");
+ok(arow !== undefined && arow.writers.length === 2, "a.cpp 有 2 个写者");
+ok(arow !== undefined && arow.commits.length === 2, "a.cpp 有 2 条提交记录");
+ok(files[0].path === "t.sh", "按时间倒序（最新的 t.sh 在前）");
+ok(store.listFiles("no-such-swarm").length === 0, "不存在的集群 -> 空数组（接口不炸）");
+rmSync(storeHome, { recursive: true, force: true });
+
+wipe();
+
+console.log("");
+console.log("（" + String(pass) + " 通过 / " + String(fail) + " 失败）");
+process.exit(fail === 0 ? 0 : 1);
+
