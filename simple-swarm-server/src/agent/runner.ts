@@ -499,7 +499,7 @@ export class AgentRunner {
       /* P2：每轮开头扫一遍"被认领但没人动"的片 —— 停滞要有系统动作，不能只靠 agent 自觉 */
       this.stallSweep();
       this.wallClockSweep();
-      /* 交作业闸 v2（exp-16 复盘）：① 旧版插在循环外，只在开跑瞬间判一次 → 15 分钟里永不触发；
+      /* 交作业闸 v2（exp-16 复盘）：① 旧版插在循环外，只在开跑瞬间判一次 → 整个 run 里永不触发；
          ② exp-14/15/16 的 complete_slice 调用数都是 0 —— 不是交不出去，是没人尝试：
             旧 evidence 要求「跑了什么命令、看到什么输出」，而片子产物是 SVG/图，凑不出这种证据。
          所以 v2：循环内判、两次喊话（50% / 80%）、并且**点名工具名**（"去交付"没用，"调用 complete_slice"才有用）。 */
@@ -510,10 +510,12 @@ export class AgentRunner {
           this.shipNudged = 1;
           this.mailTeam(
             "还剩约 " + leftMin + " 分钟：开始收尾，按现状交付",
-            "系统提醒（第 1 次 / 共 2 次）：这一轮 15 分钟，现在剩约 " + leftMin + " 分钟。请现在把手上这片收口：" + "\n" +
+            "系统提醒（第 1 次 / 共 2 次）：这一轮 " + Math.round(SWARM_RUN_MAX_MS / 60000) + " 分钟，现在剩约 " + leftMin + " 分钟。请现在把手上这片收口：" + "\n" +
               "  1) 只要产物能看/能跑，就调用 complete_slice 交付；evidence 写「做完了什么 / 怎么验的（命令、截图或目测都算）/ 哪里没做完」；" + "\n" +
               "  2) 不需要完美证据，也不需要等人许可 —— 半成品 + 说清边界就是合格交付；" + "\n" +
-              "  3) 还在等别人坐标的，按当前假设做完就交付，把假设写进 evidence，不要停在等待上。",
+              "  3) 还在等别人坐标的，按当前假设做完就交付，把假设写进 evidence，不要停在等待上；" + "\n" +
+                "  4) 这片太大、到点也做不完的话 —— 不丢人，也不许硬扛：先把**已经做完的那部分**直接 complete_slice 交付，" +
+                "     再用 slice_added 把剩下的拆成更小的一片（写清还差什么）。拆片不算失败，卡着不动才算。",
             "verify",
           );
           this.appendSystemTrace("system", "交作业闸①：墙钟 " + Math.round(SWARM_SHIP_FRACTION * 100) + "%，提醒全队调用 complete_slice 按现状交付");
@@ -535,7 +537,8 @@ export class AgentRunner {
                 body: "系统点名 " + who + "：你认领的「" + info.slice + "」还没交付，现在剩约 " + leftMin + " 分钟。" + "\n" +
                   "请立刻调用 complete_slice(slice=「…」, evidence=「…」)。" + "\n" +
                   "evidence 只要三件事：做了什么 / 怎么验的 / 哪里没做完。" + "\n" +
-                  "哪怕只写「能跑通、目测没问题、色调还没调」也算。别再打磨了 —— 没交付的片在复盘里等于零产出。",
+                  "哪怕只写「能跑通、目测没问题、色调还没调」也算。别再打磨了 —— 没交付的片在复盘里等于零产出。" + "\n" +
+                    "如果这一片到点也做不完：先交你已经做完的那部分，再用 slice_added 把剩下的写成新片（写清还差什么）。先交付 > 完美交付。",
                 kind: "verify",
               });
             } catch (error) {
@@ -546,7 +549,7 @@ export class AgentRunner {
         }
       }
 
-      /* 墙钟闸：实验口径 15 分钟就复盘（SWARM_RUN_MAX_MS=900000）。只停这一轮 run，状态机不动。 */
+      /* 墙钟闸：墙钟上限由 SWARM_RUN_MAX_MS 决定（实验用过 15/30/45 分钟）。只停这一轮 run，状态机不动。 */
       if (SWARM_RUN_MAX_MS > 0 && Date.now() - runStartMs >= SWARM_RUN_MAX_MS) {
         this.appendSystemTrace("system", "跑到墙钟上限 " + Math.round(SWARM_RUN_MAX_MS / 1000) + " 秒，主动停下复盘（swarm 仍为 live，可继续 /run 续跑）");
         stoppedBy = "time-limit";
@@ -596,7 +599,7 @@ export class AgentRunner {
 
         /* 墙钟闸（每人之前再查一次）：只查每轮开头不够 —— 一个 agent 卡在 300 秒模型超时里，
 
-           整轮就不结束，15 分钟的硬上限会被冲成 17 分钟（2026-09-17 实测）。 */
+           整轮就不结束，墙钟硬上限会被冲过头（2026-09-17 实测）。 */
 
         if (SWARM_RUN_MAX_MS > 0 && Date.now() - runStartMs >= SWARM_RUN_MAX_MS) {
 
@@ -1015,7 +1018,7 @@ export class AgentRunner {
   private maybeOpenIndependentRecheck(ctx: BrainContext, slice: string): void {
     if (!this.independentRecheckOn) return;
     if (!slice || isVerificationSlice(slice)) return; /* 复检片/修复片不再套娃 */
-    /* 只对**关键片**复检（用户口径：中 + 只对关键片）——每片都复检会把 15 分钟全烧在复核上 */
+    /* 只对**关键片**复检（用户口径：中 + 只对关键片）——每片都复检会把整轮时间全烧在复核上 */
     const isKey = slice === (this.slices[0] ?? "") || /(产物|主|最终|整合|final|main)/i.test(slice);
     if (!isKey) return;
     const info = this.store.sliceByName(this.swarmId, slice);
