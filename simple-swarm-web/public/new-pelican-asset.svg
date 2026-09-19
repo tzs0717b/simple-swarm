@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 500">
+  <defs>
+    <style>
+      .body-fill { fill: #f5f5f5; stroke: #cccccc; stroke-width: 2; }
+      .wing-fill { fill: #e8e8e8; stroke: #aaaaaa; stroke-width: 1.5; }
+      .bill-fill { fill: #ffaa44; stroke: #dd8833; stroke-width: 1.5; }
+      .pouch-fill { fill: #ffcc77; stroke: #ddaa55; stroke-width: 1.5; }
+      .eye-fill { fill: #333333; }
+      .leg-fill { fill: #ff8844; stroke: #dd6622; stroke-width: 1; }
+    </style>
+  </defs>
+
+  <!-- 鹈鹕组 - 定位跨在车座上 -->
+  <g id="pelican">
+    <!-- 左腿（连接到踏板轴 380,350） -->
+    <g id="leg-left">
+      <path class="leg-fill" d="M 290 260 L 330 320 L 370 350 L 360 355 L 325 325 L 285 265 Z"/>
+    </g>
+    
+    <!-- 右腿 -->
+    <g id="leg-right">
+      <path class="leg-fill" d="M 310 260 L 350 320 L 390 350 L 380 355 L 345 325 L 305 265 Z"/>
+    </g>
+
+    <!-- 身体 - 坐在车座 (260,215) 上 -->
+    <ellipse class="body-fill" cx="300" cy="240" rx="55" ry="40"/>
+
+    <!-- 翅膀 -->
+    <path class="wing-fill" d="M 255 230 Q 235 190 270 180 Q 300 175 320 190 Q 330 220 300 250 Q 270 260 255 230 Z"/>
+
+    <!-- 颈部 -->
+    <path class="body-fill" d="M 340 215 Q 360 175 355 145 Q 350 125 335 115 L 315 125 Q 325 145 330 175 Q 335 195 325 215 Z"/>
+
+    <!-- 头部 -->
+    <ellipse class="body-fill" cx="330" cy="110" rx="22" ry="18"/>
+
+    <!-- 长喙（上喙）- 指向右侧 -->
+    <path class="bill-fill" d="M 350 105 L 450 100 Q 455 102 455 108 L 350 120 Z"/>
+
+    <!-- 喉囊 -->
+    <path class="pouch-fill" d="M 350 120 Q 400 170 440 155 Q 450 145 445 130 L 350 120 Z"/>
+
+    <!-- 眼睛 -->
+    <circle class="eye-fill" cx="335" cy="105" r="4"/>
+    <circle fill="white" cx="336" cy="104" r="1.5"/>
+
+    <!-- 头顶羽毛 -->
+    <path class="body-fill" d="M 318 92 Q 322 78 330 92 Q 338 78 342 92 Q 348 85 352 92 Q 358 98 352 103 L 318 103 Z"/>
+  </g>
+</svg>

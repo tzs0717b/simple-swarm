@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 500" width="800" height="500">
+  <defs>
+    <!-- 车轮定义 -->
+    <g id="wheel">
+      <animateTransform attributeName="transform" type="rotate" from="0 0 0" to="360 0 0" dur="0.5s" repeatCount="indefinite"/>
+      <circle cx="0" cy="0" r="60" fill="none" stroke="#333" stroke-width="4"/>
+      <circle cx="0" cy="0" r="55" fill="none" stroke="#666" stroke-width="1"/>
+      <!-- 辐条 -->
+      <line x1="0" y1="-60" x2="0" y2="60" stroke="#888" stroke-width="1"/>
+      <line x1="-60" y1="0" x2="60" y2="0" stroke="#888" stroke-width="1"/>
+      <line x1="-42" y1="-42" x2="42" y2="42" stroke="#888" stroke-width="1"/>
+      <line x1="42" y1="-42" x2="-42" y2="42" stroke="#888" stroke-width="1"/>
+      <!-- 标记点追踪角度 -->
+      <circle cx="0" cy="-60" r="3" fill="red"/>
+    </g>
+  </defs>
+  
+  <!-- 背景 -->
+  <rect width="800" height="500" fill="#87CEEB"/>
+  
+  <!-- 地面 -->
+  <rect y="400" width="800" height="100" fill="#8B4513"/>
+  <rect y="400" width="800" height="10" fill="#228B22"/>
+  
+  <!-- 后轮 (圆心: 200, 350) -->
+  <g id="rear-wheel" transform="translate(200, 350)">
+    <use href="#wheel"/>
+  </g>
+  
+  <!-- 前轮 (圆心: 500, 350) -->
+  <g id="front-wheel" transform="translate(500, 350)">
+    <use href="#wheel"/>
+  </g>
+  
+  <!-- 自行车车架 -->
+  <g id="frame">
+    <!-- 后三角: 后轴到坐管 -->
+    <line x1="200" y1="350" x2="280" y2="350" stroke="#c00" stroke-width="6" stroke-linecap="round"/>
+    <line x1="280" y1="350" x2="260" y2="220" stroke="#c00" stroke-width="6" stroke-linecap="round"/>
+    <line x1="260" y1="220" x2="200" y2="350" stroke="#c00" stroke-width="6" stroke-linecap="round"/>
+    
+    <!-- 前三角: 坐管到五通 -->
+    <line x1="280" y1="350" x2="380" y2="350" stroke="#c00" stroke-width="6" stroke-linecap="round"/>
+    <line x1="380" y1="350" x2="320" y2="220" stroke="#c00" stroke-width="6" stroke-linecap="round"/>
+    <line x1="320" y1="220" x2="280" y2="350" stroke="#c00" stroke-width="6" stroke-linecap="round"/>
+    
+    <!-- 头管: 到车把 -->
+    <line x1="320" y1="220" x2="420" y2="180" stroke="#c00" stroke-width="6" stroke-linecap="round"/>
+    
+    <!-- 车座 -->
+    <ellipse cx="260" cy="215" rx="25" ry="10" fill="#333"/>
+    <line x1="260" y1="220" x2="260" y2="230" stroke="#333" stroke-width="4"/>
+    
+    <!-- 车把 -->
+    <path d="M 410 175 Q 430 165 440 175" fill="none" stroke="#333" stroke-width="5" stroke-linecap="round"/>
+    <line x1="420" y1="180" x2="420" y2="175" stroke="#333" stroke-width="4"/>
+    
+    <!-- 五通/踏板轴 -->
+    <circle cx="380" cy="350" r="8" fill="#666"/>
+  </g>
+  
+  <!-- 鹈鹕静态造型 (暂不添加，等下一个切片) -->
+  <g id="pelican"></g>
+</svg>

@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="400" height="400" viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+  <!-- 背景 -->
+  <rect width="100%" height="100%" fill="#f0f0f0"/>
+
+  <!-- 地面线 -->
+  <line x1="50" y1="350" x2="350" y2="350" stroke="#333" stroke-width="2"/>
+
+  <!-- 轮子组（前轮） -->
+  <g id="wheel-front" transform="translate(150, 340) rotate(0)">
+    <!-- 轮胎外圈 -->
+    <circle cx="0" cy="0" r="50" fill="#fff" stroke="#333" stroke-width="3"/>
+    <!-- 辐条 -->
+    <line x1="0" y1="0" x2="0" y2="-45" stroke="#333" stroke-width="2"/>
+    <line x1="0" y1="0" x2="45" y2="0" stroke="#333" stroke-width="2"/>
+    <line x1="0" y1="0" x2="0" y2="45" stroke="#333" stroke-width="2"/>
+    <line x1="0" y1="0" x2="-45" y2="0" stroke="#333" stroke-width="2"/>
+    <!-- 轮辋 -->
+    <circle cx="0" cy="0" r="38" fill="#ddd" stroke="#333" stroke-width="2"/>
+    <circle cx="0" cy="0" r="30" fill="none" stroke="#333" stroke-width="1"/>
+  </g>
+
+  <!-- 轮子组（后轮） -->
+  <g id="wheel-rear" transform="translate(250, 340) rotate(0)">
+    <!-- 轮胎外圈 -->
+    <circle cx="0" cy="0" r="50" fill="#fff" stroke="#333" stroke-width="3"/>
+    <!-- 辐条 -->
+    <line x1="0" y1="0" x2="0" y2="-45" stroke="#333" stroke-width="2"/>
+    <line x1="0" y1="0" x2="45" y2="0" stroke="#333" stroke-width="2"/>
+    <line x1="0" y1="0" x2="0" y2="45" stroke="#333" stroke-width="2"/>
+    <line x1="0" y1="0" x2="-45" y2="0" stroke="#333" stroke-width="2"/>
+    <!-- 轮辋 -->
+    <circle cx="0" cy="0" r="38" fill="#ddd" stroke="#333" stroke-width="2"/>
+    <circle cx="0" cy="0" r="30" fill="none" stroke="#333" stroke-width="1"/>
+  </g>
+
+  <!-- 链条组 -->
+  <g id="chain" transform="translate(200, 340)">
+    <!-- 链条路径由 JS/SMIL 动态生成 -->
+    <path fill="none" stroke="#666" stroke-width="4" stroke-linecap="round"/>
+  </g>
+
+  <!-- 踏板组 -->
+  <g id="pedal" transform="translate(200, 380)">
+    <rect x="-20" y="-5" width="40" height="10" fill="#555"/>
+    <circle cx="0" cy="0" r="8" fill="#333"/>
+  </g>
+
+  <!-- 方向杆组 -->
+  <g id="handlebar" transform="translate(150, 300)">
+    <line x1="-40" y1="0" x2="40" y2="0" stroke="#333" stroke-width="3"/>
+    <circle cx="-50" cy="0" r="6" fill="#333"/>
+    <circle cx="50" cy="0" r="6" fill="#333"/>
+  </g>
+
+  <!-- 鹈鹕（从 bird.svg 移植） -->
+  <g id="bird" transform="translate(200, 100)">
+    <!-- 身体主形状 -->
+    <path d="M200,100 C180,150 220,200 200,280 C180,320 220,350 200,380 Z" fill="#FF6B6B" stroke="#FF4D4D" stroke-width="2"/>
+    <!-- 长喙 -->
+    <path d="M200,100 L200,50 L180,45 Z" fill="#FF6B6B" stroke="#FF4D4D" stroke-width="2"/>
+    <!-- 喉囊 -->
+    <path d="M200,280 L150,320 L130,330 L150,360 Z" fill="#FF6B6B" stroke="#FF4D4D" stroke-width="2"/>
+    <!-- 鹈鹕眼 -->
+    <circle cx="200" cy="100" r="5" fill="#FFFFFF"/>
+    <!-- 喉囊连接线 -->
+    <path d="M200,280 L200,300" stroke="#FF4D4D" stroke-width="2" fill="none"/>
+  </g>
+
+  <!-- 动画：车轮前轮旋转 (360度/行驶距离) -->
+  <animateTransform
+    xlink:href="#wheel-front"
+    attributeName="transform"
+    type="rotate"
+    from="0 0 0"
+    to="360 0 0"
+    dur="2s"
+    repeatCount="indefinite"/>
+
+  <!-- 动画：车轮后轮旋转 (360度/行驶距离) -->
+  <animateTransform
+    xlink:href="#wheel-rear"
+    attributeName="transform"
+    type="rotate"
+    from="0 0 0"
+    to="360 0 0"
+    dur="2s"
+    repeatCount="indefinite"/>
+
+  <!-- 动画：链条移动 -->
+  <!-- 这里使用 path 调整，链条环形移动 -->
+  <set xlink:href="#chain" to="M0,0 L0,0"/>
+  <!-- 链条主要移动段：模拟链条环形移动 -->
+  <animateMotion xlink:href="#chain" dur="2s" repeatCount="indefinite">
+    <path d="M0,0 C50,-20 C100,-40 C150,-60 C200,-80"/>
+  </animateMotion>
+
+  <!-- 踏板旋转动画（与车轮同步） -->
+  <animateTransform
+    xlink:href="#pedal"
+    attributeName="transform"
+    type="rotate"
+    from="0 -200 -200"
+    to="360 -200 -200"
+    dur="1s"
+    repeatCount="indefinite"/>
+
+</svg>

@@ -1,0 +1,102 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" width="800" height="600">
+  <!-- 自行车结构分组框架 -->
+  <g id="frame">
+    <line x1="220" y1="390" x2="220" y2="350" stroke="#555" stroke-width="6"/>
+    <line x1="220" y1="350" x2="580" y2="310" stroke="#555" stroke-width="6"/>
+    <line x1="580" y1="310" x2="580" y2="390" stroke="#555" stroke-width="6"/>
+    <rect x="195" y="340" width="30" height="20" fill="#777"/>
+  </g>
+
+  <!-- 后轮组 -->
+  <g id="wheel-rear" transform="translate(220, 390)">
+    <circle cx="0" cy="0" r="60" fill="none" stroke="#333" stroke-width="4"/>
+    <g id="spoke-rear">
+      <line x1="0" y1="0" x2="0" y2="-55" stroke="#666" stroke-width="2"/>
+      <line x1="0" y1="0" x2="55" y2="0" stroke="#666" stroke-width="2"/>
+      <line x1="0" y1="0" x2="0" y2="55" stroke="#666" stroke-width="2"/>
+      <line x1="0" y1="0" x2="-55" y2="0" stroke="#666" stroke-width="2"/>
+    </g>
+    <animateTransform attributeName="transform" type="rotate" from="0" to="360" dur="2s" repeatCount="indefinite"/>
+  </g>
+
+  <!-- 前轮组 -->
+  <g id="wheel-front" transform="translate(580, 390)">
+    <circle cx="0" cy="0" r="60" fill="none" stroke="#333" stroke-width="4"/>
+    <g id="spoke-front">
+      <line x1="0" y1="0" x2="0" y2="-55" stroke="#666" stroke-width="2"/>
+      <line x1="0" y1="0" x2="55" y2="0" stroke="#666" stroke-width="2"/>
+      <line x1="0" y1="0" x2="0" y2="55" stroke="#666" stroke-width="2"/>
+      <line x1="0" y1="0" x2="-55" y2="0" stroke="#666" stroke-width="2"/>
+    </g>
+    <animateTransform attributeName="transform" type="rotate" from="0" to="360" dur="2s" repeatCount="indefinite"/>
+  </g>
+
+  <!-- 链条组 -->
+  <g id="chain">
+    <path id="chain-path" d="M 220,390 L 580,390" fill="none" stroke="#666" stroke-width="4"/>
+  </g>
+
+  <!-- 踏板组 -->
+  <g id="pedal" transform="translate(220, 390)">
+    <line x1="0" y1="0" x2="0" y2="-45" stroke="#444" stroke-width="8" stroke-linecap="round"/>
+    <rect x="-15" y="-55" width="30" height="20" fill="#555"/>
+    <animateTransform attributeName="transform" type="rotate" from="0" to="360" dur="2s" repeatCount="indefinite"/>
+  </g>
+  <circle id="pedal-center" cx="220" cy="390" r="4" fill="red" opacity="0.7"/>
+
+  <!-- 车把组 -->
+  <g id="handlebar">
+    <line x1="0" y1="0" x2="40" y2="0" stroke="#333" stroke-width="4"/>
+    <line x1="40" y1="0" x2="45" y2="15" stroke="#333" stroke-width="4"/>
+  </g>
+
+  <!-- 鹈鹕分组 -->
+  <g id="bird" transform="translate(400, 250)">
+    <ellipse cx="0" cy="0" rx="60" ry="80" fill="#FFB347" stroke="#E88A00" stroke-width="2"/>
+    <path d="M-50,-70 Q-60,-120 0,-150" fill="none" stroke="#FFB347" stroke-width="20" stroke-linecap="round"/>
+    <circle cx="0" cy="-60" r="25" fill="#FFB347" stroke="#E88A00" stroke-width="2"/>
+    <path d="M35,-50 L80,-55 L75,-45 L35,-45 Z" fill="#FFB347" stroke="#E88A00" stroke-width="2"/>
+    <path d="M35,-45 Q70,10 75,-45" fill="#FFD9A0" stroke="#E88A00" stroke-width="2"/>
+    <circle cx="5" cy="-55" r="4" fill="#000"/>
+    <circle cx="6" cy="-54" r="1.5" fill="#FFF"/>
+  </g>
+
+  <!-- 腿部与脚部动画组 - 纯SMIL实现，脚始终在踏板上（≤3px） -->
+  <g id="legs" transform="translate(0,0)">
+    <!-- 左大腿: 髋(205,415) → 膝盖 → 脚 -->
+    <line id="l-thigh" stroke="#E88A00" stroke-width="10" stroke-linecap="round" x1="205" y1="415" x2="257.3" y2="444.5">
+      <animate attributeName="x2" values="257.3;175.4;218.7;257.2;257.3" keyTimes="0;0.25;0.5;0.75;1" dur="2s" repeatCount="indefinite"/>
+      <animate attributeName="y2" values="444.5;467.2;356.6;385.5;444.5" keyTimes="0;0.25;0.5;0.75;1" dur="2s" repeatCount="indefinite"/>
+    </line>
+    <!-- 左小腿: 膝盖 → 脚(随踏板动) -->
+    <line id="l-calf" stroke="#E88A00" stroke-width="8" stroke-linecap="round" x1="257.3" y1="444.5" x2="265" y2="390">
+      <animate attributeName="x1" values="257.3;175.4;218.7;257.2;257.3" keyTimes="0;0.25;0.5;0.75;1" dur="2s" repeatCount="indefinite"/>
+      <animate attributeName="y1" values="444.5;467.2;356.6;385.5;444.5" keyTimes="0;0.25;0.5;0.75;1" dur="2s" repeatCount="indefinite"/>
+      <animate attributeName="x2" values="265;220;175;220;265" keyTimes="0;0.25;0.5;0.75;1" dur="2s" repeatCount="indefinite"/>
+      <animate attributeName="y2" values="390;435;390;345;390" keyTimes="0;0.25;0.5;0.75;1" dur="2s" repeatCount="indefinite"/>
+    </line>
+    <!-- 左脚: 椭圆中心始终在踏板位置 -->
+    <ellipse id="l-foot" rx="14" ry="6" fill="#FFD9A0" stroke="#E88A00" stroke-width="1.5" cx="265" cy="390">
+      <animate attributeName="cx" values="265;220;175;220;265" keyTimes="0;0.25;0.5;0.75;1" dur="2s" repeatCount="indefinite"/>
+      <animate attributeName="cy" values="390;435;390;345;390" keyTimes="0;0.25;0.5;0.75;1" dur="2s" repeatCount="indefinite"/>
+    </ellipse>
+
+    <!-- 右大腿: 髋(235,415) → 膝盖 → 脚 -->
+    <line id="r-thigh" stroke="#E88A00" stroke-width="10" stroke-linecap="round" x1="235" y1="415" x2="219.1" y2="357.1">
+      <animate attributeName="x2" values="219.1;270.6;290;176.6;219.1" keyTimes="0;0.25;0.5;0.75;1" dur="2s" repeatCount="indefinite"/>
+      <animate attributeName="y2" values="357.1;366.7;439;401.2;357.1" keyTimes="0;0.25;0.5;0.75;1" dur="2s" repeatCount="indefinite"/>
+    </line>
+    <!-- 右小腿: 膝盖 → 脚(随踏板动) -->
+    <line id="r-calf" stroke="#E88A00" stroke-width="8" stroke-linecap="round" x1="219.1" y1="357.1" x2="175" y2="390">
+      <animate attributeName="x1" values="219.1;270.6;290;176.6;219.1" keyTimes="0;0.25;0.5;0.75;1" dur="2s" repeatCount="indefinite"/>
+      <animate attributeName="y1" values="357.1;366.7;439;401.2;357.1" keyTimes="0;0.25;0.5;0.75;1" dur="2s" repeatCount="indefinite"/>
+      <animate attributeName="x2" values="175;220;265;220;175" keyTimes="0;0.25;0.5;0.75;1" dur="2s" repeatCount="indefinite"/>
+      <animate attributeName="y2" values="390;345;390;435;390" keyTimes="0;0.25;0.5;0.75;1" dur="2s" repeatCount="indefinite"/>
+    </line>
+    <!-- 右脚: 椭圆中心始终在踏板位置 -->
+    <ellipse id="r-foot" rx="14" ry="6" fill="#FFD9A0" stroke="#E88A00" stroke-width="1.5" cx="175" cy="390">
+      <animate attributeName="cx" values="175;220;265;220;175" keyTimes="0;0.25;0.5;0.75;1" dur="2s" repeatCount="indefinite"/>
+      <animate attributeName="cy" values="390;345;390;435;390" keyTimes="0;0.25;0.5;0.75;1" dur="2s" repeatCount="indefinite"/>
+    </ellipse>
+  </g>
+</svg>

@@ -1,0 +1,163 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 500" width="800" height="500">
+  <defs>
+    <!-- 车轮定义 -->
+    <g id="wheel">
+      <circle cx="0" cy="0" r="60" fill="none" stroke="#333" stroke-width="4"/>
+      <circle cx="0" cy="0" r="55" fill="none" stroke="#666" stroke-width="1"/>
+      <!-- 辐条 -->
+      <line x1="0" y1="-60" x2="0" y2="60" stroke="#888" stroke-width="1"/>
+      <line x1="-60" y1="0" x2="60" y2="0" stroke="#888" stroke-width="1"/>
+      <line x1="-42" y1="-42" x2="42" y2="42" stroke="#888" stroke-width="1"/>
+      <line x1="42" y1="-42" x2="-42" y2="42" stroke="#888" stroke-width="1"/>
+      <!-- 标记点追踪角度 -->
+      <circle cx="0" cy="-60" r="3" fill="red"/>
+    </g>
+  </defs>
+  
+  <!-- 背景 -->
+  <rect width="800" height="500" fill="#87CEEB"/>
+  
+  <!-- 视差背景 - 云朵 -->
+  <g id="clouds">
+    <animateTransform attributeName="transform" type="translate" from="0 0" to="-800 0" dur="3s" repeatCount="indefinite"/>
+    <ellipse cx="100" cy="80" rx="40" ry="20" fill="white" opacity="0.8"/>
+    <ellipse cx="130" cy="75" rx="35" ry="18" fill="white" opacity="0.8"/>
+    <ellipse cx="80" cy="75" rx="30" ry="15" fill="white" opacity="0.8"/>
+    
+    <ellipse cx="500" cy="120" rx="50" ry="25" fill="white" opacity="0.7"/>
+    <ellipse cx="540" cy="115" rx="40" ry="20" fill="white" opacity="0.7"/>
+    <ellipse cx="460" cy="115" rx="35" ry="18" fill="white" opacity="0.7"/>
+    
+    <ellipse cx="300" cy="60" rx="35" ry="18" fill="white" opacity="0.6"/>
+    <ellipse cx="330" cy="55" rx="30" ry="15" fill="white" opacity="0.6"/>
+  </g>
+  
+  <!-- 地面 -->
+  <rect y="400" width="800" height="100" fill="#8B4513"/>
+  <rect y="400" width="800" height="10" fill="#228B22"/>
+  
+  <!-- 后轮 (圆心: 200, 350) -->
+  <g id="rear-wheel" transform="translate(200, 350)">
+    <g>
+      <animateTransform attributeName="transform" type="rotate" from="0 0 0" to="360 0 0" dur="0.5s" repeatCount="indefinite"/>
+      <use href="#wheel"/>
+    </g>
+  </g>
+  
+  </g>
+  
+  <!-- 自行车车架 -->
+  <g id="frame">
+    <!-- 后三角: 后轴到坐管 -->
+    <line x1="200" y1="350" x2="280" y2="350" stroke="#c00" stroke-width="6" stroke-linecap="round"/>
+    <line x1="280" y1="350" x2="260" y2="220" stroke="#c00" stroke-width="6" stroke-linecap="round"/>
+    <line x1="260" y1="220" x2="200" y2="350" stroke="#c00" stroke-width="6" stroke-linecap="round"/>
+    
+    <!-- 前三角: 坐管到五通 -->
+    <line x1="280" y1="350" x2="380" y2="350" stroke="#c00" stroke-width="6" stroke-linecap="round"/>
+    <line x1="380" y1="350" x2="320" y2="220" stroke="#c00" stroke-width="6" stroke-linecap="round"/>
+    <line x1="320" y1="220" x2="280" y2="350" stroke="#c00" stroke-width="6" stroke-linecap="round"/>
+    
+    <!-- 头管: 到车把 -->
+    <line x1="320" y1="220" x2="420" y2="180" stroke="#c00" stroke-width="6" stroke-linecap="round"/>
+    
+    <!-- 车座 -->
+    <ellipse cx="260" cy="215" rx="25" ry="10" fill="#333"/>
+    <line x1="260" y1="220" x2="260" y2="230" stroke="#333" stroke-width="4"/>
+    
+    <!-- 车把 -->
+    <path d="M 410 175 Q 430 165 440 175" fill="none" stroke="#333" stroke-width="5" stroke-linecap="round"/>
+    <line x1="420" y1="180" x2="420" y2="175" stroke="#333" stroke-width="4"/>
+    
+    <!-- 五通/踏板轴 -->
+    <circle cx="380" cy="350" r="8" fill="#666"/>
+  </g>
+  
+  <!-- 脚踏和腿的动画系统 -->
+  <g id="pedal-leg-system">
+    <!-- 曲柄旋转动画 -->
+    <g transform="translate(380, 350)">
+      <g>
+        <animateTransform 
+          attributeName="transform" 
+          type="rotate" 
+          from="0" 
+          to="360" 
+          dur="1s" 
+          repeatCount="indefinite"
+          calcMode="linear"/>
+        
+        <!-- 曲柄臂 -->
+        <line x1="0" y1="0" x2="0" y2="30" stroke="#666" stroke-width="6" stroke-linecap="round"/>
+        
+        <!-- 右侧脚踏板 -->
+        <rect x="-10" y="28" width="20" height="6" rx="2" fill="#444"/>
+        
+        <!-- 左侧脚踏板（反向） -->
+        <line x1="0" y1="0" x2="0" y2="-30" stroke="#666" stroke-width="6" stroke-linecap="round"/>
+        <rect x="-10" y="-34" width="20" height="6" rx="2" fill="#444"/>
+      </g>
+    </g>
+    
+    <!-- 右腿动画组 -->
+    <g id="right-leg-group">
+      <!-- 大腿 -->
+      <line id="right-thigh" x1="270" y1="280" x2="380" y2="320" stroke="#f5f5f5" stroke-width="12" stroke-linecap="round"/>
+      <!-- 小腿 -->
+      <line id="right-shin" x1="380" y1="320" x2="380" y2="380" stroke="#f5f5f5" stroke-width="10" stroke-linecap="round"/>
+      <!-- 脚掌 -->
+      <ellipse cx="380" cy="380" rx="12" ry="5" fill="#ff8844"/>
+    </g>
+    
+    <!-- 左腿动画组 -->
+    <g id="left-leg-group">
+      <!-- 大腿 -->
+      <line id="left-thigh" x1="270" y1="280" x2="380" y2="380" stroke="#e8e8e8" stroke-width="12" stroke-linecap="round"/>
+      <!-- 小腿 -->
+      <line id="left-shin" x1="380" y1="380" x2="380" y2="320" stroke="#e8e8e8" stroke-width="10" stroke-linecap="round"/>
+      <!-- 脚掌 -->
+      <ellipse cx="380" cy="320" rx="12" ry="5" fill="#ff8844"/>
+    </g>
+  </g>
+  
+  <!-- 鹈鹕身体 -->
+  <g id="pelican" transform="translate(250, 150)">
+    <!-- 身体 -->
+    <ellipse class="body-fill" cx="130" cy="100" rx="50" ry="35" fill="#f5f5f5" stroke="#cccccc" stroke-width="2"/>
+    
+    <!-- 翅膀 -->
+    <path class="wing-fill" d="M 90 90 Q 70 50 110 40 Q 140 35 160 50 Q 170 80 140 105 Q 110 115 90 90 Z" 
+          fill="#e8e8e8" stroke="#aaaaaa" stroke-width="1.5"/>
+    
+    <!-- 颈部 -->
+    <path class="body-fill" d="M 160 80 Q 180 40 170 10 Q 165 -10 150 -20 L 130 -10 Q 140 10 145 40 Q 150 60 140 80 Z" 
+          fill="#f5f5f5" stroke="#cccccc" stroke-width="2"/>
+    
+    <!-- 头部 -->
+    <ellipse class="body-fill" cx="145" cy="-30" rx="22" ry="18" fill="#f5f5f5" stroke="#cccccc" stroke-width="2"/>
+    
+    <!-- 长喙（上喙） -->
+    <path class="bill-fill" d="M 125 -35 L 40 -40 Q 35 -42 35 -36 L 125 -20 Z" 
+          fill="#ffaa44" stroke="#dd8833" stroke-width="1.5"/>
+    
+    <!-- 喉囊 -->
+    <path class="pouch-fill" d="M 125 -20 Q 80 30 50 15 Q 40 5 45 -10 L 125 -20 Z" 
+          fill="#ffcc77" stroke="#ddaa55" stroke-width="1.5"/>
+    
+    <!-- 眼睛 -->
+    <circle class="eye-fill" cx="150" cy="-35" r="4" fill="#333333"/>
+    <circle fill="white" cx="151" cy="-36" r="1.5"/>
+    
+    <!-- 头顶羽毛 -->
+    <path class="body-fill" d="M 135 -50 Q 140 -65 145 -50 Q 150 -65 155 -50 Q 160 -60 165 -50 Q 170 -45 165 -40 L 135 -40 Z" 
+          fill="#f5f5f5" stroke="#cccccc" stroke-width="1"/>
+  </g>
+  
+  <!-- 前轮 (圆心: 500, 350) -->
+  <g id="front-wheel" transform="translate(500, 350)">
+    <g>
+      <animateTransform attributeName="transform" type="rotate" from="0 0 0" to="360 0 0" dur="0.5s" repeatCount="indefinite"/>
+      <use href="#wheel"/>
+    </g>
+</svg>

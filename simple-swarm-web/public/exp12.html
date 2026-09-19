@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="zh"><head><meta charset="utf-8"><title>exp-12 产物（10 agent / 15 分钟）</title>
+<style>
+body{font:14px/1.6 -apple-system,"Noto Sans CJK SC",sans-serif;margin:0;padding:24px;background:#faf9f7;color:#1a1a1a}
+h1{font-size:20px;margin:0 0 4px}h2{font-size:14px;text-transform:uppercase;letter-spacing:.08em;color:#e8590c;margin:28px 0 8px}
+.meta{color:#5c5c58;font-size:13px;margin-bottom:16px}
+table{border-collapse:collapse;width:100%;background:#fff;font-size:12px}
+th,td{border:1px solid #e6e5e0;padding:6px 8px;text-align:left;vertical-align:top}
+th{background:#f4f3ef;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#5c5c58}
+.tag{color:#fff;border-radius:3px;padding:1px 6px;font-size:11px;white-space:nowrap}
+.sl{max-width:260px}.who{white-space:nowrap;color:#e8590c}.ev{color:#5c5c58;max-width:520px;white-space:pre-wrap}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:14px}
+figure{margin:0;background:#fff;border:1px solid #e6e5e0;border-radius:5px;padding:10px}
+figcaption{font-size:12px;margin-bottom:6px}.dim{color:#9a9a95;font-size:11px}
+.note{background:#fff8e6;border:1px solid #f0d9a0;border-radius:5px;padding:10px 12px;font-size:12px;color:#6b5320}
+</style></head><body>
+<h1>exp-12 产物 · 10 agent / 15 分钟 / $2.67</h1>
+<div class="meta">集群 exp-12 · 调用 128 次 · tokens 1.48M · 看板 8 片（已交付 3）</div>
+<div class="note">这是 <b>15 分钟墙钟</b>跑出来的中间态，不是成品：8 片里 3 片已交付、5 片还在认领中，
+所以单车「拼装」那一片还没收口 —— 看到的可能是零件图而不是完整会动的鹈鹕骑车。
+文件都在集群工作目录 <code>swarm/simple-swarm-server/workspace/exp-12/</code>。</div>
+<h2>看板（谁交付了什么 + 证据）</h2>
+<table><tr><th>状态</th><th>切片</th><th>认领人</th><th>交付证据</th></tr><tr><td><span class="tag" style="background:#2f9e44">已交付</span></td><td class="sl">手写鹈鹕主体造型：白灰羽毛、喉囊、扁长喙、饱满躯干，含翅膀和短尾羽，作为静态基础组</td><td class="who">maggie</td><td class="ev">Created pelican-body.svg (7491 bytes, 143 lines). Validated with Python xml.etree.ElementTree: SVG parses OK, 14 groups total. Key group IDs for integration: #pelican (root), #pelican-tail, #pelican-body, #pelican-wing, #pelican-neck, #pelican-head, #pelican-eye, #pelican-beak, #pelican-pouch, #peli</td></tr><tr><td><span class="tag" style="background:#e8590c">认领中</span></td><td class="sl">拼装车架+双轮组：画三角车架、前叉、车把、车座、前后辐条轮，轮心距车座几何比例合理</td><td class="who">melvin</td><td class="ev"></td></tr><tr><td><span class="tag" style="background:#2f9e44">已交付</span></td><td class="sl">实现传动联动：曲柄旋转、链条示意、脚踏板随曲柄公转，确保脚与踏板绑定不脱离</td><td class="who">dustin</td><td class="ev">交付物: ./drivetrain.svg (8585 bytes, 177行)
+
+验证方式:
+1. python3 xml.etree.ElementTree.parse('drivetrain.svg') → 有效XML, 86个元素, 8个animate元素
+2. 关键group: #crank-assembly(曲柄旋转), #pedal-a/#pedal-b(踏板counter-rotate保持水平), #drivetrain(链条+牙盘), #pelican-legs/#right-leg/#left-leg(腿绑定)
+3. 脚-踏板绑定机制: 腿部和踏板都在crank-assem</td></tr><tr><td><span class="tag" style="background:#2f9e44">已交付</span></td><td class="sl">鹈鹕装配与踩踏姿态：腿关节铰接至踏板位置，全身跨坐车座，双臂搭车把，膝踝朝向合理</td><td class="who">ronald</td><td class="ev">python3 -m playwright install</td></tr><tr><td><span class="tag" style="background:#e8590c">认领中</span></td><td class="sl">绘制背景视差层：地面线及远景元素以恒定速度位移，与车轮转速匹配产生行进感</td><td class="who">elmer</td><td class="ev"></td></tr><tr><td><span class="tag" style="background:#e8590c">认领中</span></td><td class="sl">可机械判定断言：写playwright截图+像素测量脚本，输出脚-踏板距离序列(≤3px)、首尾帧逐像素差异(须为0)、</td><td class="who">earl</td><td class="ev"></td></tr><tr><td><span class="tag" style="background:#e8590c">认领中</span></td><td class="sl">整合单文件SVG：把鹈鹕、车架、传动、背景各部分合并进一个SVG，统一坐标系与动画时长，跑通循环并自查</td><td class="who">marian</td><td class="ev"></td></tr><tr><td><span class="tag" style="background:#e8590c">认领中</span></td><td class="sl">整合单文件SVG：把鹈鹵、车架、传动、背景各部分合并进一个SVG，统一坐标系与动画时长，跑通循环并自查</td><td class="who">ronald</td><td class="ev"></td></tr></table>
+<h2>产物文件</h2>
+<div class="grid"><figure><figcaption><b>drivetrain.svg</b> <span class="dim">8.4KB · 动画元素 8</span></figcaption><object type="image/svg+xml" data="exp12-drivetrain.svg" width="100%" height="320"></object><p class="dim"><a href="exp12-drivetrain.svg" target="_blank">单独打开</a></p></figure><figure><figcaption><b>pelican-bicycle.svg</b> <span class="dim">7.6KB · 动画元素 0</span></figcaption><object type="image/svg+xml" data="exp12-pelican-bicycle.svg" width="100%" height="320"></object><p class="dim"><a href="exp12-pelican-bicycle.svg" target="_blank">单独打开</a></p></figure><figure><figcaption><b>pelican-body.svg</b> <span class="dim">7.3KB · 动画元素 0</span></figcaption><object type="image/svg+xml" data="exp12-pelican-body.svg" width="100%" height="320"></object><p class="dim"><a href="exp12-pelican-body.svg" target="_blank">单独打开</a></p></figure><figure><figcaption><b>test_frame.svg</b> <span class="dim">0.3KB · 动画元素 1</span></figcaption><object type="image/svg+xml" data="exp12-test_frame.svg" width="100%" height="320"></object><p class="dim"><a href="exp12-test_frame.svg" target="_blank">单独打开</a></p></figure></div>
+</body></html>

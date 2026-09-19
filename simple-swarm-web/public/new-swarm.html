@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="zh"><head><meta charset="utf-8"><title>新集群 swarm · 产物快照</title>
+<style>
+ body{font:14px/1.75 system-ui,-apple-system,sans-serif;margin:26px;background:#0f1115;color:#e6e6e6}
+ h1{font-size:20px;margin-bottom:4px} h2{font-size:16px;margin-top:30px;border-top:1px solid #2c313a;padding-top:16px}
+ .grid{display:flex;flex-wrap:wrap;gap:18px} .card{background:#181b22;padding:14px;border-radius:10px}
+ object,img{background:#fff;border-radius:8px;display:block;margin-top:8px}
+ .mono{font-family:ui-monospace,monospace} .note{color:#9aa4b2}
+ table{border-collapse:collapse;margin-top:10px} td,th{border:1px solid #2c313a;padding:6px 10px;text-align:left} th{background:#181b22}
+</style></head><body>
+<h1>新集群 <span class="mono">swarm</span> · 产物快照</h1>
+<p class="note">6 个 agent：katie / ada / alexander / warren / minnie / harriet　·　$3.90 / 上限 $15　·　465 次调用　·　6.49M tokens<br>
+看板 6 片 = 5 交付 / 1 认领（<span class="mono">做脚踏与腿的耦合循环</span> 还在 ada 手上）</p>
+
+<h2>候选交付物（按动画丰富度排序）</h2>
+<table>
+<tr><th>文件</th><th>大小</th><th>animate</th><th>分组</th><th>谁在做</th></tr>
+<tr><td class="mono">bicycle_pelican_pedal.svg</td><td>8.9 KB</td><td>20</td><td>10</td><td>warren / ada（脚踏+腿）</td></tr>
+<tr><td class="mono">bicycle_pelican_animated.svg</td><td>7.1 KB</td><td>4</td><td>12</td><td>集成版</td></tr>
+<tr><td class="mono">bicycle_pelican_full.svg</td><td>6.7 KB</td><td>4</td><td>10</td><td>alexander（拼装集成+背景视差）</td></tr>
+<tr><td class="mono">bicycle_pelican.svg</td><td>2.7 KB</td><td>1</td><td>5</td><td>最早的骨架版</td></tr>
+</table>
+
+<h2>1. 动画预览（浏览器里会自己动）</h2>
+<div class="grid">
+ <div class="card"><div><b>bicycle_pelican_pedal.svg</b> · 8.9 KB · 动画最多</div><object type="image/svg+xml" data="new-4-pedal.svg" width="600" height="375"></object></div>
+ <div class="card"><div><b>bicycle_pelican_animated.svg</b> · 7.1 KB</div><object type="image/svg+xml" data="new-3-animated.svg" width="600" height="375"></object></div>
+ <div class="card"><div><b>bicycle_pelican_full.svg</b> · 6.7 KB · alexander 集成版</div><object type="image/svg+xml" data="new-2-full.svg" width="600" height="375"></object></div>
+ <div class="card"><div><b>bicycle_pelican.svg</b> · 2.7 KB · 骨架版</div><object type="image/svg+xml" data="new-1-pelican.svg" width="600" height="375"></object></div>
+</div>
+
+<h2>2. 时序自检（minnie：t=0 与 t=2 逐像素对比）</h2>
+<div class="grid">
+ <div class="card"><div>frame_t0.png · 33.9 KB</div><img src="new-frame-t0.png" width="560"></div>
+ <div class="card"><div>frame_t2.png · 33.9 KB</div><img src="new-frame-t2.png" width="560"></div>
+ <div class="card"><div>contact_sheet.png · 25.8 KB</div><img src="new-contact-sheet.png" width="560"></div>
+</div>
+<p class="note">minnie 的交付证据：t=0 与 t=2 两帧逐像素差值 = <b>0</b>，contact sheet 已生成。</p>
+</body></html>

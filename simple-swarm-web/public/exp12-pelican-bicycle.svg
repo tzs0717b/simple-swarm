@@ -1,0 +1,207 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 500" width="800" height="500">
+  <defs>
+    <!-- 车架渐变色 -->
+    <linearGradient id="frameGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#4a90d9;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#2c5f8d;stop-opacity:1" />
+    </linearGradient>
+    
+    <!-- 轮子渐变 -->
+    <radialGradient id="wheelGrad" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" style="stop-color:#e8e8e8;stop-opacity:1" />
+      <stop offset="70%" style="stop-color:#cccccc;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#999999;stop-opacity:1" />
+    </radialGradient>
+    
+    <!-- 轮胎阴影 -->
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="2" dy="2" stdDeviation="2" flood-opacity="0.3"/>
+    </filter>
+  </defs>
+  
+  <!-- 背景 -->
+  <rect width="800" height="500" fill="#87CEEB"/>
+  
+  <!-- ===== 车架 + 双轮组 ===== -->
+  <g id="bicycle-frame-wheels" filter="url(#shadow)">
+    
+    <!-- ===== 后轮 ===== -->
+    <g id="rear-wheel" transform="translate(220, 350)">
+      <!-- 外胎 -->
+      <circle cx="0" cy="0" r="65" fill="none" stroke="#333" stroke-width="12"/>
+      <!-- 轮胎内圈 -->
+      <circle cx="0" cy="0" r="53" fill="none" stroke="#555" stroke-width="8"/>
+      <!-- 轮毂 -->
+      <circle cx="0" cy="0" r="12" fill="#666" stroke="#444" stroke-width="2"/>
+      <!-- 辐条 -->
+      <g stroke="#aaa" stroke-width="1.5" opacity="0.8">
+        <line x1="0" y1="-53" x2="0" y2="53"/>
+        <line x1="-53" y1="0" x2="53" y2="0"/>
+        <line x1="-37.5" y1="-37.5" x2="37.5" y2="37.5"/>
+        <line x1="37.5" y1="-37.5" x2="-37.5" y2="37.5"/>
+        <line x1="-25" y1="-48" x2="25" y2="48"/>
+        <line x1="25" y1="-48" x2="-25" y2="48"/>
+        <line x1="-48" y1="-25" x2="48" y2="25"/>
+        <line x1="-48" y1="25" x2="48" y2="-25"/>
+      </g>
+      <!-- 轮轴标记 -->
+      <circle cx="0" cy="0" r="5" fill="#888"/>
+    </g>
+    
+    <!-- ===== 前轮 ===== -->
+    <g id="front-wheel" transform="translate(520, 350)">
+      <!-- 外胎 -->
+      <circle cx="0" cy="0" r="65" fill="none" stroke="#333" stroke-width="12"/>
+      <!-- 轮胎内圈 -->
+      <circle cx="0" cy="0" r="53" fill="none" stroke="#555" stroke-width="8"/>
+      <!-- 轮毂 -->
+      <circle cx="0" cy="0" r="12" fill="#666" stroke="#444" stroke-width="2"/>
+      <!-- 辐条 -->
+      <g stroke="#aaa" stroke-width="1.5" opacity="0.8">
+        <line x1="0" y1="-53" x2="0" y2="53"/>
+        <line x1="-53" y1="0" x2="53" y2="0"/>
+        <line x1="-37.5" y1="-37.5" x2="37.5" y2="37.5"/>
+        <line x1="37.5" y1="-37.5" x2="-37.5" y2="37.5"/>
+        <line x1="-25" y1="-48" x2="25" y2="48"/>
+        <line x1="25" y1="-48" x2="-25" y2="48"/>
+        <line x1="-48" y1="-25" x2="48" y2="25"/>
+        <line x1="-48" y1="25" x2="48" y2="-25"/>
+      </g>
+      <!-- 轮轴标记 -->
+      <circle cx="0" cy="0" r="5" fill="#888"/>
+    </g>
+    
+    <!-- ===== 三角车架 ===== -->
+    <g id="frame-triangle" stroke="url(#frameGrad)" stroke-width="8" fill="none" stroke-linejoin="round">
+      <!-- 主三角：座管-五通-下管 -->
+      <polygon points="
+        280,220    <!-- 座管顶部 (BB附近，实际是座管下点) -->
+        320,220    <!-- 座管顶部 -->
+        320,350    <!-- 五通 BB -->
+        280,350    <!-- 五通后点 -->
+      " stroke-width="0"/>
+      
+      <!-- 上管：座管顶部到头管顶部 -->
+      <line x1="320" y1="220" x2="460" y2="220"/>
+      <!-- 下管：五通到头管 -->
+      <line x1="320" y1="350" x2="480" y2="220"/>
+      <!-- 座管：五通到座管顶部 -->
+      <line x1="320" y1="350" x2="320" y2="220"/>
+      <!-- 后下叉：五通到后轴 -->
+      <line x1="320" y1="350" x2="220" y2="350" stroke-width="6"/>
+      <!-- 后上叉：座管顶部到后轴 -->
+      <line x1="320" y1="220" x2="220" y2="350" stroke-width="6"/>
+      <!-- 头管：前叉上端 -->
+      <line x1="460" y1="220" x2="480" y2="220" stroke-width="12"/>
+    </g>
+    
+    <!-- ===== 前叉 ===== -->
+    <g id="fork" stroke="#4a90d9" stroke-width="8" fill="none" stroke-linecap="round">
+      <!-- 前叉腿：头管到下轴 -->
+      <line x1="475" y1="220" x2="510" y2="350"/>
+      <line x1="485" y1="220" x2="530" y2="350"/>
+      <!-- 前叉耳 -->
+      <circle cx="520" cy="350" r="8" fill="#3a7bc8" stroke="#2c5f8d" stroke-width="2"/>
+    </g>
+    
+    <!-- ===== 车把 ===== -->
+    <g id="handlebar" stroke="#333" stroke-width="6" fill="none" stroke-linecap="round">
+      <!-- 把立 -->
+      <line x1="470" y1="210" x2="490" y2="180"/>
+      <!-- 横把 -->
+      <path d="M 440,185 Q 470,175 500,185 Q 510,190 515,185" stroke-width="8"/>
+      <!-- 把套 -->
+      <line x1="435" y1="183" x2="445" y2="187" stroke-width="12" stroke="#555"/>
+      <line x1="505" y1="187" x2="515" y2="183" stroke-width="12" stroke="#555"/>
+    </g>
+    
+    <!-- ===== 车座 ===== -->
+    <g id="seat" filter="url(#shadow)">
+      <!-- 座管 -->
+      <line x1="320" y1="220" x2="320" y2="180" stroke="#666" stroke-width="6"/>
+      <!-- 座垫 -->
+      <ellipse cx="310" cy="170" rx="35" ry="12" fill="#444" stroke="#333" stroke-width="2"/>
+      <!-- 座管夹 -->
+      <rect x="316" y="185" width="8" height="12" fill="#555" rx="2"/>
+    </g>
+    
+    <!-- ===== 五通/中轴 ===== -->
+    <circle cx="320" cy="350" r="15" fill="#555" stroke="#333" stroke-width="2"/>
+    
+  </g>
+  
+  <!-- ===== 动画控制组 ===== -->
+  <style>
+    /* 车轮旋转动画 */
+    @keyframes rotateWheel {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+    
+    #rear-wheel {
+      animation: rotateWheel 2s linear infinite;
+      transform-origin: 220px 350px;
+    }
+    
+    #front-wheel {
+      animation: rotateWheel 2s linear infinite;
+      transform-origin: 520px 350px;
+    }
+    
+    /* 背景滚动 */
+    @keyframes scrollBackground {
+      from { transform: translateX(0); }
+      to { transform: translateX(-800px); }
+    }
+    
+    .ground {
+      animation: scrollBackground 2s linear infinite;
+    }
+  </style>
+  
+  <!-- ===== 地面线 ===== -->
+  <g id="ground" class="ground">
+    <line x1="0" y1="415" x2="1600" y2="415" stroke="#8B7355" stroke-width="8"/>
+    <line x1="0" y1="415" x2="1600" y2="415" stroke="#6B5344" stroke-width="3" stroke-dasharray="40,20"/>
+    <!-- 草地装饰 -->
+    <g fill="#4a7c3f" opacity="0.6">
+      <polygon points="50,415 55,400 60,415"/>
+      <polygon points="150,415 155,402 160,415"/>
+      <polygon points="250,415 255,398 260,415"/>
+      <polygon points="350,415 355,403 360,415"/>
+      <polygon points="450,415 455,400 460,415"/>
+      <polygon points="550,415 555,398 560,415"/>
+      <polygon points="650,415 655,402 660,415"/>
+      <polygon points="750,415 755,398 760,415"/>
+      <polygon points="850,415 855,400 860,415"/>
+      <polygon points="950,415 955,398 960,415"/>
+      <polygon points="1050,415 1055,402 1060,415"/>
+      <polygon points="1150,415 1155,398 1160,415"/>
+      <polygon points="1250,415 1255,400 1260,415"/>
+      <polygon points="1350,415 1355,398 1360,415"/>
+      <polygon points="1450,415 1455,402 1460,415"/>
+      <polygon points="1550,415 1555,398 1560,415"/>
+    </g>
+  </g>
+  
+  <!-- ===== 远景元素（山脉） ===== -->
+  <g id="mountains" opacity="0.4" fill="#7cb342">
+    <polygon points="0,415 100,280 200,415"/>
+    <polygon points="150,415 280,250 400,415"/>
+    <polygon points="350,415 480,270 600,415"/>
+    <polygon points="550,415 680,260 800,415"/>
+    <polygon points="700,415 830,280 950,415"/>
+    <polygon points="850,415 980,250 1100,415"/>
+    <polygon points="1050,415 1180,270 1300,415"/>
+    <polygon points="1250,415 1380,260 1500,415"/>
+  </g>
+  
+  <!-- 图例说明 -->
+  <g id="legend" font-family="Arial, sans-serif" font-size="12" fill="#333">
+    <rect x="10" y="10" width="180" height="80" fill="rgba(255,255,255,0.8)" rx="5" stroke="#ccc"/>
+    <text x="20" y="35" font-weight="bold">自行车动画组件</text>
+    <text x="20" y="55">• 车架：三角几何结构</text>
+    <text x="20" y="75">• 双轮：辐条旋转动画</text>
+  </g>
+  
+</svg>

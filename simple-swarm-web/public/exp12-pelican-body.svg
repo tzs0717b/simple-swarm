@@ -1,0 +1,143 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 400" width="300" height="400">
+  <defs>
+    <linearGradient id="bodyGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#f5f5f5"/>
+      <stop offset="60%" stop-color="#e8e8e8"/>
+      <stop offset="100%" stop-color="#d0d0d0"/>
+    </linearGradient>
+    <linearGradient id="wingGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#b8b8b8"/>
+      <stop offset="50%" stop-color="#9a9a9a"/>
+      <stop offset="100%" stop-color="#808080"/>
+    </linearGradient>
+    <linearGradient id="pouchGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#f0c0a0"/>
+      <stop offset="100%" stop-color="#e8a878"/>
+    </linearGradient>
+    <linearGradient id="beakGrad" x1="0" y1="0" x2="1" y2="0.3">
+      <stop offset="0%" stop-color="#e8a040"/>
+      <stop offset="70%" stop-color="#d49030"/>
+      <stop offset="100%" stop-color="#c08020"/>
+    </linearGradient>
+    <radialGradient id="headHighlight" cx="0.4" cy="0.35" r="0.6">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#f0f0f0"/>
+    </radialGradient>
+  </defs>
+
+  <g id="pelican">
+    <!-- TAIL FEATHERS -->
+    <g id="pelican-tail">
+      <path d="M 95,230 Q 60,225 50,240 Q 55,235 70,238 Q 55,242 48,255 Q 60,248 75,245 Q 65,252 58,265 Q 72,255 85,250 Q 80,258 78,268 Q 88,258 98,248 Z" 
+            fill="#9a9a9a" stroke="#888" stroke-width="0.5"/>
+      <path d="M 90,235 Q 68,233 55,245" fill="none" stroke="#888" stroke-width="0.5" opacity="0.5"/>
+      <path d="M 88,242 Q 65,243 55,255" fill="none" stroke="#888" stroke-width="0.5" opacity="0.5"/>
+    </g>
+
+    <!-- BODY -->
+    <g id="pelican-body">
+      <ellipse cx="140" cy="210" rx="65" ry="55" fill="url(#bodyGrad)" stroke="#ccc" stroke-width="0.5"/>
+      <ellipse cx="145" cy="225" rx="50" ry="35" fill="#f8f4f0" opacity="0.6"/>
+      <ellipse cx="155" cy="195" rx="35" ry="25" fill="white" opacity="0.3"/>
+      <path d="M 100,200 Q 120,195 140,200" fill="none" stroke="#ddd" stroke-width="0.5" opacity="0.4"/>
+      <path d="M 105,215 Q 125,210 145,215" fill="none" stroke="#ddd" stroke-width="0.5" opacity="0.4"/>
+      <path d="M 110,230 Q 130,225 150,230" fill="none" stroke="#ddd" stroke-width="0.5" opacity="0.4"/>
+    </g>
+
+    <!-- WING -->
+    <g id="pelican-wing">
+      <path d="M 115,175 Q 90,190 80,220 Q 75,240 85,260 Q 95,270 115,265 
+               Q 130,258 140,240 Q 148,220 145,200 Q 142,185 130,175 Z" 
+            fill="url(#wingGrad)" stroke="#888" stroke-width="0.8"/>
+      <path d="M 110,185 Q 92,200 85,225 Q 82,240 88,255" 
+            fill="none" stroke="#777" stroke-width="0.8" opacity="0.6"/>
+      <path d="M 118,180 Q 98,198 90,225 Q 87,242 92,258" 
+            fill="none" stroke="#777" stroke-width="0.6" opacity="0.5"/>
+      <path d="M 125,178 Q 105,195 97,220 Q 94,238 98,255" 
+            fill="none" stroke="#777" stroke-width="0.5" opacity="0.4"/>
+      <path d="M 88,255 Q 82,262 85,270 Q 92,265 95,258" fill="#707070" opacity="0.7"/>
+      <path d="M 92,258 Q 87,266 90,273 Q 96,268 98,260" fill="#686868" opacity="0.6"/>
+    </g>
+
+    <!-- NECK -->
+    <g id="pelican-neck">
+      <path d="M 155,175 Q 160,155 158,135 Q 155,115 148,100 
+               Q 142,88 138,80 Q 135,75 135,70
+               L 142,68 Q 145,73 148,80 
+               Q 153,90 158,105 Q 165,125 168,145 
+               Q 170,160 168,175 Z" 
+            fill="#f0f0f0" stroke="#ddd" stroke-width="0.5"/>
+      <path d="M 158,170 Q 162,150 160,130 Q 157,112 150,98 Q 145,88 142,80" 
+            fill="none" stroke="#e0e0e0" stroke-width="2" opacity="0.3"/>
+    </g>
+
+    <!-- HEAD -->
+    <g id="pelican-head">
+      <ellipse cx="140" cy="62" rx="28" ry="24" fill="url(#headHighlight)" stroke="#e0e0e0" stroke-width="0.5"/>
+      <ellipse cx="148" cy="65" rx="12" ry="10" fill="white" opacity="0.4"/>
+      <g id="pelican-eye">
+        <circle cx="152" cy="56" r="4.5" fill="#1a1a1a"/>
+        <circle cx="153.5" cy="54.5" r="1.5" fill="white" opacity="0.8"/>
+        <circle cx="152" cy="56" r="6" fill="none" stroke="#d49030" stroke-width="1"/>
+      </g>
+    </g>
+
+    <!-- BEAK -->
+    <g id="pelican-beak">
+      <path d="M 160,55 Q 175,52 200,50 Q 220,49 235,52 
+               Q 240,54 238,57 Q 230,58 215,58 
+               Q 200,58 185,60 Q 170,62 160,62 Z" 
+            fill="url(#beakGrad)" stroke="#b07020" stroke-width="0.5"/>
+      <path d="M 162,56 Q 180,53 210,52 Q 225,52 235,53" 
+            fill="none" stroke="#c08030" stroke-width="0.8" opacity="0.5"/>
+      <path d="M 235,52 Q 240,54 238,57 Q 236,56 235,55" fill="#b07020"/>
+      <path d="M 160,62 Q 175,65 195,68 Q 210,70 220,68 
+               Q 230,65 235,57 Q 230,58 215,58 
+               Q 200,58 185,60 Q 170,62 160,62 Z" 
+            fill="#d49030" stroke="#b07020" stroke-width="0.5" opacity="0.9"/>
+      <ellipse cx="185" cy="54" rx="3" ry="1.5" fill="#c08020" opacity="0.5"/>
+    </g>
+
+    <!-- THROAT POUCH -->
+    <g id="pelican-pouch">
+      <path d="M 158,62 Q 165,72 170,85 Q 172,95 168,105 
+               Q 162,112 155,108 Q 150,100 152,88 
+               Q 153,78 155,68 Z" 
+            fill="url(#pouchGrad)" stroke="#d09060" stroke-width="0.5" opacity="0.85"/>
+      <path d="M 160,70 Q 163,82 162,95" fill="none" stroke="#d09060" stroke-width="0.4" opacity="0.4"/>
+      <path d="M 156,72 Q 158,85 157,98" fill="none" stroke="#d09060" stroke-width="0.3" opacity="0.3"/>
+    </g>
+
+    <!-- LEGS -->
+    <g id="pelican-legs">
+      <g id="pelican-leg-left">
+        <path d="M 125,255 Q 120,275 118,295 Q 117,305 120,310" 
+              fill="none" stroke="#e8a040" stroke-width="6" stroke-linecap="round"/>
+        <circle cx="119" cy="308" r="4" fill="#e8a040" stroke="#d09030" stroke-width="0.5"/>
+        <path d="M 120,310 Q 122,325 125,340 Q 127,348 130,352" 
+              fill="none" stroke="#e8a040" stroke-width="5" stroke-linecap="round"/>
+        <circle cx="130" cy="350" r="3.5" fill="#e8a040" stroke="#d09030" stroke-width="0.5"/>
+        <g id="pelican-foot-left">
+          <path d="M 130,352 L 118,360 Q 115,362 118,364 L 130,358 L 142,364 Q 145,362 142,360 L 130,352 Z" 
+                fill="#e8a040" stroke="#d09030" stroke-width="0.5"/>
+          <path d="M 122,358 Q 126,360 130,358" fill="none" stroke="#d09030" stroke-width="0.3" opacity="0.5"/>
+          <path d="M 130,358 Q 134,360 138,358" fill="none" stroke="#d09030" stroke-width="0.3" opacity="0.5"/>
+        </g>
+      </g>
+      <g id="pelican-leg-right">
+        <path d="M 155,258 Q 158,278 160,298 Q 161,308 158,315" 
+              fill="none" stroke="#e8a040" stroke-width="6" stroke-linecap="round"/>
+        <circle cx="159" cy="313" r="4" fill="#e8a040" stroke="#d09030" stroke-width="0.5"/>
+        <path d="M 158,315 Q 155,330 152,345 Q 150,353 148,358" 
+              fill="none" stroke="#e8a040" stroke-width="5" stroke-linecap="round"/>
+        <circle cx="149" cy="356" r="3.5" fill="#e8a040" stroke="#d09030" stroke-width="0.5"/>
+        <g id="pelican-foot-right">
+          <path d="M 148,358 L 136,366 Q 133,368 136,370 L 148,364 L 160,370 Q 163,368 160,366 L 148,358 Z" 
+                fill="#e8a040" stroke="#d09030" stroke-width="0.5"/>
+          <path d="M 140,364 Q 144,366 148,364" fill="none" stroke="#d09030" stroke-width="0.3" opacity="0.5"/>
+          <path d="M 148,364 Q 152,366 156,364" fill="none" stroke="#d09030" stroke-width="0.3" opacity="0.5"/>
+        </g>
+      </g>
+    </g>
+  </g>
+</svg>

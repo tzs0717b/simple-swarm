@@ -1,0 +1,26 @@
+{
+  "name": "simple-swarm-server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Simple Swarm System backend - local-first, any-Linux compatible, zero native modules",
+  "engines": {
+    "node": ">=22.6"
+  },
+  "scripts": {
+    "start": "node src/index.ts",
+    "dev": "node --watch src/index.ts",
+    "smoke": "node scripts/smoke.ts",
+    "ws-check": "node scripts/ws-check.ts",
+    "e2e": "node scripts/e2e.ts",
+    "mail-check": "node scripts/mail-check.ts",
+    "storm-check": "node scripts/storm-check.ts",
+    "agent-check": "node scripts/agent-check.ts",
+    "reset": "rm -rf data && mkdir -p data && echo \"事件库已清空（下次启动就是全新的系统）\""
+  },
+  "dependencies": {
+    "fastify": "^5.6.1",
+    "ws": "^8.18.3",
+    "zod": "^4.1.12"
+  }
+}

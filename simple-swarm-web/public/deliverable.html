@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="zh"><head><meta charset="utf-8"><title>鹈鹕交付物 · 实测</title>
+<style>
+ body{font:14px/1.75 system-ui,-apple-system,sans-serif;margin:26px;background:#0f1115;color:#e6e6e6}
+ h1{font-size:20px;margin-bottom:4px} h2{font-size:16px;margin-top:30px;border-top:1px solid #2c313a;padding-top:16px}
+ .grid{display:flex;flex-wrap:wrap;gap:18px} .card{background:#181b22;padding:14px;border-radius:10px}
+ object,img{background:#fff;border-radius:8px;display:block;margin-top:8px}
+ .pass{color:#4ade80;font-weight:600} .fail{color:#f87171;font-weight:600}
+ .mono{font-family:ui-monospace,monospace} table{border-collapse:collapse;margin-top:10px}
+ td,th{border:1px solid #2c313a;padding:7px 10px;text-align:left} th{background:#181b22}
+ a{color:#7dd3fc} .note{color:#9aa4b2}
+</style></head><body>
+<h1>鹈鹕骑自行车 · 交付物与实测</h1>
+<p class="note">产物目录 <span class="mono">swarm/simple-swarm-server/workspace/pelican-8/</span>　来源 swarm <span class="mono">pelican-8</span>（6 个 agent，$7.66 / 上限 $15）</p>
+
+<h2>1. 交付的动画（SMIL 原生动画，浏览器里会自己动）</h2>
+<div class="grid">
+ <div class="card"><div><b>pelican_bike.svg</b> · 6.5 KB · 主交付</div>
+   <object type="image/svg+xml" data="pelican-deliverable.svg" width="620" height="465"></object></div>
+ <div class="card"><div><b>bicycle_phicanim.svg</b> · 4.1 KB · 分支产物</div>
+   <object type="image/svg+xml" data="pelican-deliverable-branch.svg" width="620" height="465"></object></div>
+</div>
+
+<h2>2. 实测结论：轮子同步 <span class="pass">PASS</span>　脚-踏板 ≤3px <span class="fail">FAIL</span></h2>
+<table>
+<tr><th>来源</th><th>脚-踏板最大距离</th><th>结论</th></tr>
+<tr><td>foot_verification2.json（IK 模型自算）</td><td>0.00 px</td><td class="pass">all_pass: true</td></tr>
+<tr><td>verification_report.txt（自测自签）</td><td>0.000000 px</td><td class="pass">通过</td></tr>
+<tr><td>verification/verification_report.txt（独立采样）</td><td>531.448 px</td><td class="fail">FAIL</td></tr>
+<tr><td>verification_correct/（修正版独立复检）</td><td>90.00 px</td><td class="fail">FAIL</td></tr>
+<tr><td>INDEPENDENT_VERIFICATION_REPORT.md（luther 署名）</td><td>528.578 px</td><td class="fail">FAIL（超阈值约 176 倍）</td></tr>
+</table>
+<p>轮子 / 踏板 / 链条：逐帧角度完全一致，前轮与后轮最大差 <b>0&deg;</b>（独立复检也认）。</p>
+<p class="note">唯一说"通过"的两行是<b>自己算、自己签</b>；三份<b>独立</b>复检实测都是 90&ndash;531 px。这正是本轮加「复检片不许产物最后改动者签收」要治的病。</p>
+
+<h2>3. 采样拼图（人眼可验）</h2>
+<div class="grid">
+ <div class="card"><div>contact_sheet.png · 顶层交付 · 195 KB</div><img src="contact-sheet-deliverable.png" width="620"></div>
+ <div class="card"><div>verification_correct/contact_sheet.png · 修正版复检 · 74 KB</div><img src="contact-sheet-correct.png" width="620"></div>
+ <div class="card"><div>verification/contact_sheet.png · 独立采样复检 · 150 KB</div><img src="contact-sheet-independent.png" width="620"></div>
+</div>
+<p class="note">实测脚本：<span class="mono">capture_samples.py</span>（CDP 逐帧截图）→ <span class="mono">verify_pelican.py</span> / <span class="mono">verify_legs_correct.py</span>（量角度与距离）→ <span class="mono">measurements.json</span>。</p>
+</body></html>

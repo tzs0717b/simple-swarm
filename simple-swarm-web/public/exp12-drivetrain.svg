@@ -1,0 +1,176 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 500" width="800" height="500">
+  <defs>
+    <!-- 
+      DRIVETRAIN CONSTANTS (all other slices reference these):
+      - Animation duration: 2s per full revolution
+      - Rear wheel center: (280, 350), radius: 60
+      - Front wheel center: (520, 350), radius: 60
+      - Bottom bracket (crank center): (350, 340)
+      - Crank arm length: 25
+      - Chainring radius: 18
+      - Rear sprocket radius: 12
+      - Seat position: ~(318, 238)
+      - Handlebar position: ~(510, 250)
+      - Ground line: y=413
+    -->
+  </defs>
+
+  <!-- Ground reference -->
+  <line x1="0" y1="413" x2="800" y2="413" stroke="#aaa" stroke-width="1" stroke-dasharray="6,4"/>
+
+  <!-- ===== BICYCLE FRAME (reference for integration) ===== -->
+  <g id="bicycle-frame" fill="none" stroke="#444" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+    <!-- Seat tube -->
+    <line x1="350" y1="340" x2="322" y2="252"/>
+    <!-- Down tube -->
+    <line x1="350" y1="340" x2="488" y2="268"/>
+    <!-- Top tube -->
+    <line x1="322" y1="252" x2="488" y2="260"/>
+    <!-- Head tube -->
+    <line x1="488" y1="260" x2="498" y2="272"/>
+    <!-- Fork -->
+    <line x1="498" y1="272" x2="520" y2="350"/>
+    <!-- Chain stay -->
+    <line x1="350" y1="340" x2="280" y2="350"/>
+    <!-- Seat stay -->
+    <line x1="322" y1="252" x2="280" y2="350"/>
+    <!-- Seat post + saddle -->
+    <line x1="322" y1="252" x2="318" y2="238"/>
+    <ellipse cx="318" cy="235" rx="18" ry="5" fill="#333"/>
+    <!-- Handlebar stem -->
+    <line x1="488" y1="260" x2="505" y2="248"/>
+    <!-- Handlebar -->
+    <path d="M 498 248 Q 510 240 518 250" fill="none" stroke="#333" stroke-width="3"/>
+  </g>
+
+  <!-- ===== REAR WHEEL ===== -->
+  <g id="rear-wheel">
+    <circle cx="280" cy="350" r="63" fill="none" stroke="#222" stroke-width="5"/>
+    <circle cx="280" cy="350" r="60" fill="none" stroke="#555" stroke-width="2"/>
+    <circle cx="280" cy="350" r="5" fill="#777"/>
+    <g id="rear-spokes">
+      <animateTransform attributeName="transform" type="rotate"
+        from="0 280 350" to="360 280 350" dur="2s" repeatCount="indefinite"/>
+      <line x1="280" y1="295" x2="280" y2="405" stroke="#aaa" stroke-width="0.7"/>
+      <line x1="225" y1="350" x2="335" y2="350" stroke="#aaa" stroke-width="0.7"/>
+      <line x1="241" y1="311" x2="319" y2="389" stroke="#aaa" stroke-width="0.7"/>
+      <line x1="319" y1="311" x2="241" y2="389" stroke="#aaa" stroke-width="0.7"/>
+      <line x1="260" y1="298" x2="300" y2="402" stroke="#aaa" stroke-width="0.7"/>
+      <line x1="300" y1="298" x2="260" y2="402" stroke="#aaa" stroke-width="0.7"/>
+      <line x1="240" y1="330" x2="320" y2="370" stroke="#aaa" stroke-width="0.7"/>
+      <line x1="320" y1="330" x2="240" y2="370" stroke="#aaa" stroke-width="0.7"/>
+    </g>
+    <!-- Rear sprocket -->
+    <circle cx="280" cy="350" r="12" fill="none" stroke="#888" stroke-width="2"/>
+  </g>
+
+  <!-- ===== FRONT WHEEL ===== -->
+  <g id="front-wheel">
+    <circle cx="520" cy="350" r="63" fill="none" stroke="#222" stroke-width="5"/>
+    <circle cx="520" cy="350" r="60" fill="none" stroke="#555" stroke-width="2"/>
+    <circle cx="520" cy="350" r="5" fill="#777"/>
+    <g id="front-spokes">
+      <animateTransform attributeName="transform" type="rotate"
+        from="0 520 350" to="360 520 350" dur="2s" repeatCount="indefinite"/>
+      <line x1="520" y1="295" x2="520" y2="405" stroke="#aaa" stroke-width="0.7"/>
+      <line x1="465" y1="350" x2="575" y2="350" stroke="#aaa" stroke-width="0.7"/>
+      <line x1="481" y1="311" x2="559" y2="389" stroke="#aaa" stroke-width="0.7"/>
+      <line x1="559" y1="311" x2="481" y2="389" stroke="#aaa" stroke-width="0.7"/>
+      <line x1="500" y1="298" x2="540" y2="402" stroke="#aaa" stroke-width="0.7"/>
+      <line x1="540" y1="298" x2="500" y2="402" stroke="#aaa" stroke-width="0.7"/>
+      <line x1="480" y1="330" x2="560" y2="370" stroke="#aaa" stroke-width="0.7"/>
+      <line x1="560" y1="330" x2="480" y2="370" stroke="#aaa" stroke-width="0.7"/>
+    </g>
+  </g>
+
+  <!-- ===== DRIVETRAIN: Chainring + Chain + Crank + Pedals ===== -->
+  <g id="drivetrain">
+    <!-- Chainring -->
+    <circle cx="350" cy="340" r="18" fill="none" stroke="#666" stroke-width="2.5"/>
+
+    <!-- Chain upper run -->
+    <line x1="350" y1="322" x2="280" y2="338" stroke="#555" stroke-width="2"/>
+    <!-- Chain lower run -->
+    <line x1="350" y1="358" x2="280" y2="362" stroke="#555" stroke-width="2"/>
+    <!-- Chain wrap on chainring -->
+    <path d="M 350 358 A 18 18 0 0 0 350 322" fill="none" stroke="#555" stroke-width="2"/>
+    <!-- Chain wrap on sprocket -->
+    <path d="M 280 338 A 12 12 0 0 1 280 362" fill="none" stroke="#555" stroke-width="2"/>
+
+    <!-- Animated chain links (upper run, moving left) -->
+    <g clip-path="url(#chain-clip)">
+      <animateTransform attributeName="transform" type="translate"
+        from="0,0" to="-16,0" dur="0.453s" repeatCount="indefinite"/>
+      <rect x="270" y="336" width="8" height="4" rx="1" fill="#666"/>
+      <rect x="286" y="336" width="8" height="4" rx="1" fill="#666"/>
+      <rect x="302" y="336" width="8" height="4" rx="1" fill="#666"/>
+      <rect x="318" y="336" width="8" height="4" rx="1" fill="#666"/>
+      <rect x="334" y="336" width="8" height="4" rx="1" fill="#666"/>
+      <rect x="350" y="336" width="8" height="4" rx="1" fill="#666"/>
+      <rect x="366" y="336" width="8" height="4" rx="1" fill="#666"/>
+    </g>
+
+    <!-- ===== CRANK ASSEMBLY (rotates around bottom bracket) ===== -->
+    <g id="crank-assembly">
+      <animateTransform attributeName="transform" type="rotate"
+        from="0 350 340" to="360 350 340" dur="2s" repeatCount="indefinite"/>
+
+      <!-- Crank arm A (extends right at t=0) -->
+      <line x1="350" y1="340" x2="375" y2="340" stroke="#555" stroke-width="4" stroke-linecap="round"/>
+      <!-- Pedal A at end of crank arm A -->
+      <g id="pedal-a">
+        <!-- Counter-rotate so pedal stays horizontal -->
+        <animateTransform attributeName="transform" type="rotate"
+          from="0 375 340" to="-360 375 340" dur="2s" repeatCount="indefinite"/>
+        <rect x="368" y="335" width="14" height="10" rx="2" fill="#888" stroke="#555" stroke-width="1"/>
+      </g>
+
+      <!-- Crank arm B (extends left at t=0) -->
+      <line x1="350" y1="340" x2="325" y2="340" stroke="#555" stroke-width="4" stroke-linecap="round"/>
+      <!-- Pedal B at end of crank arm B -->
+      <g id="pedal-b">
+        <animateTransform attributeName="transform" type="rotate"
+          from="0 325 340" to="-360 325 340" dur="2s" repeatCount="indefinite"/>
+        <rect x="318" y="335" width="14" height="10" rx="2" fill="#888" stroke="#555" stroke-width="1"/>
+      </g>
+
+      <!-- Bottom bracket axle -->
+      <circle cx="350" cy="340" r="4" fill="#555"/>
+    </g>
+  </g>
+
+  <!-- ===== PELICAN LEGS (bound to pedals via same rotation) ===== -->
+  <g id="pelican-legs">
+    <!-- Right leg: hip ~(335,275) -> knee -> pedal-a -->
+    <g id="right-leg">
+      <animateTransform attributeName="transform" type="rotate"
+        from="0 350 340" to="360 350 340" dur="2s" repeatCount="indefinite"/>
+      <!-- Upper leg -->
+      <line x1="335" y1="275" x2="365" y2="315" stroke="#e8e0d0" stroke-width="6" stroke-linecap="round"/>
+      <!-- Lower leg -->
+      <line x1="365" y1="315" x2="375" y2="340" stroke="#e8e0d0" stroke-width="5" stroke-linecap="round"/>
+      <!-- Foot on pedal -->
+      <ellipse cx="375" cy="338" rx="8" ry="4" fill="#f4a020"/>
+    </g>
+
+    <!-- Left leg: hip ~(335,275) -> knee -> pedal-b -->
+    <g id="left-leg">
+      <animateTransform attributeName="transform" type="rotate"
+        from="0 350 340" to="360 350 340" dur="2s" repeatCount="indefinite"/>
+      <!-- Upper leg -->
+      <line x1="335" y1="275" x2="335" y2="315" stroke="#e8e0d0" stroke-width="6" stroke-linecap="round"/>
+      <!-- Lower leg -->
+      <line x1="335" y1="315" x2="325" y2="340" stroke="#e8e0d0" stroke-width="5" stroke-linecap="round"/>
+      <!-- Foot on pedal -->
+      <ellipse cx="325" cy="338" rx="8" ry="4" fill="#f4a020"/>
+    </g>
+  </g>
+
+  <!-- ===== PARAMETER ANNOTATIONS (for integration) ===== -->
+  <g id="params" font-family="monospace" font-size="9" fill="#999" opacity="0.6">
+    <text x="350" y="380" text-anchor="middle">BB(350,340)</text>
+    <text x="280" y="420" text-anchor="middle">RW(280,350)r60</text>
+    <text x="520" y="420" text-anchor="middle">FW(520,350)r60</text>
+    <text x="400" y="440" text-anchor="middle">crank=25 chainring=18 sprocket=12 dur=2s</text>
+  </g>
+</svg>

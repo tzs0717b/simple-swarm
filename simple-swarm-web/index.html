@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SIMPLE SWARM SYSTEM</title>
+  </head>
+  <body>
+    <div id="root"></div>
+        <script>
+      /* 早期错误兜底 —— 必须放在 index.html：模块图加载失败时 main.tsx 根本不会执行，写在 main.tsx 里的监听注册不上 */
+      (function () {
+        window.__earlyErrorReporter = true;
+        function show(title, detail) {
+          var root = document.getElementById("root");
+          if (!root || root.firstChild) return;
+          var box = document.createElement("div");
+          box.style.cssText = "margin:24px;padding:16px;border:1px solid #f0c0bb;border-radius:5px;background:#fdeceb;font:12px/1.6 ui-monospace,monospace;color:#a1553a;white-space:pre-wrap;word-break:break-all";
+          var head = document.createElement("p");
+          head.style.cssText = "margin:0 0 8px;font-weight:600;color:#b91c1c";
+          head.textContent = title;
+          var body = document.createElement("p");
+          body.style.margin = "0";
+          body.textContent = detail;
+          box.append(head, body);
+          root.append(box);
+        }
+        window.addEventListener("error", function (event) {
+          var target = event.target;
+          if (target && target.tagName === "SCRIPT") { show("模块加载失败", target.src || "(内联脚本)"); return; }
+          show("早期错误", (event.error && (event.error.stack || event.error.message)) || event.message || "未知错误");
+        }, true);
+        window.addEventListener("unhandledrejection", function (event) {
+          var reason = event.reason;
+          show("早期 Promise 异常", (reason && (reason.stack || reason.message)) || String(reason));
+        });
+        setTimeout(function () {
+          var root = document.getElementById("root");
+          if (root && !root.firstChild) {
+            show("入口脚本没有跑起来", "4 秒后 #root 仍然是空的：浏览器没有执行 /src/main.tsx（ESM 被禁用，或某个模块加载失败）。地址：" + location.href);
+          }
+        }, 4000);
+      })();
+    </script>
+<script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
