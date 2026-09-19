@@ -58,3 +58,5 @@ run/
 *.sqlite3
 .server.pid
 simple-swarm-server/.server.pid
+# 运行期产物：工作区 + 影子仓库（自检也会造，不该进源码库）
+simple-swarm-server/gitrepos/
