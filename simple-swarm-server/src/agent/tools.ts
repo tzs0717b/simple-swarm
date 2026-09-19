@@ -254,7 +254,8 @@ export function toolPublishSlice(ctx: ToolContext, slice: string): ToolResult {
       if (heard) spoken.push(name);
     }
     const pending = talkFirstPending(roster, spoken, false, true);
-    if (pending.length > 0 && !pending.includes(ctx.agent)) {
+    /* 第一版写成 pending.length > 0 && !pending.includes(ctx.agent)，变成「没广播的人可以挂片、广播过的人被拦」，实测一次都没拦到。只要还有人没广播，就必须挡。 */
+    if (pending.length > 0) {
       return {
         observation:
           "先别挂片：板上还是空的，说明这轮的分工还没商量完。" +
