@@ -15,7 +15,7 @@ import { releaseSlice, takeSlice } from "../claims.ts";
 import { BASH_TIMEOUT_MS, SWARM_BLOCK_INSTALL } from "../config.ts";
 import { SWARM_BOARD_TALK_FIRST, SWARM_NEGOTIATE_BOARD } from "../config.ts";
 import { talkFirstPending } from "../board.ts";
-import { acceptanceLooksFailed, sampleMatches, type TaskSample } from "./versions.ts";
+import { acceptanceLooksFailed, sampleMatches, type TaskEntry, type TaskSample } from "./versions.ts";
 import type { EventStore } from "../eventstore.ts";
 import { addressOf, localOf } from "../mail.ts";
 import { isRefusal, mailSharedClaimLine, sendMail } from "../send.ts";
@@ -371,6 +371,71 @@ export function toolReleaseSlice(ctx: ToolContext, slice: string): ToolResult {
  *  但脚本第 372 行就是语法错误，全队 10 个人没一个发现，交付照样记成 completed —— 契约写在纸上没人执行。
  *  所以改成：脚本跑不起来、或报 FAIL（非 0 退出），交付直接打回；输出挂进证据，让人看得见。 */
 const CHECK_SCRIPT_RE = /^(check|verify|test)[a-z0-9_-]*\.py$|^[a-z0-9_-]*_check\.py$/i;
+
+export function runAcceptanceCases(dir: string, entry: TaskEntry, cases: string[]): { ok: boolean; note: string } {
+  /* P12：判分器生成在**工作区之外**（<server>/judges/<swarmId>/），agent 删不掉也改不了。 */
+  const mod = entry.file.replace(/[.]py$/, "");
+  const judgeDir = path.resolve(dir, "..", "judges", path.basename(dir));
+  try {
+    mkdirSync(judgeDir, { recursive: true });
+  } catch {
+    return { ok: false, note: "题面验收：跑不动（建不了判分目录）" };
+  }
+  const py: string[] = [
+    "import importlib",
+    "m = importlib.import_module(" + JSON.stringify(mod) + ")",
+    "def must_raise(text, needle):",
+    "    try:",
+    "        v = m." + entry.fn + "(text)",
+    "    except ValueError as e:",
+    "        assert needle in str(e), '错误信息里没有 ' + needle",
+    "        return",
+    "    raise AssertionError('没有抛 ValueError，返回了 ' + repr(v))",
+    "CASES = " + JSON.stringify(cases),
+    "ok = 0",
+    "for i, line in enumerate(CASES, 1):",
+    "    try:",
+    "        exec(line, {'evaluate': m." + entry.fn + ", 'must_raise': must_raise})",
+    "        ok += 1",
+    "    except Exception as e:",
+    "        print('FAIL #' + str(i) + ': ' + line + ' | ' + str(e)[:70])",
+    "print('RESULT ' + str(ok) + '/' + str(len(CASES)))",
+  ];
+  try {
+    writeFileSync(path.join(judgeDir, "judge.py"), py.join("\n"), "utf8");
+  } catch {
+    return { ok: false, note: "题面验收：跑不动（判分器写不进去）" };
+  }
+  let r;
+  try {
+    r = spawnSync("python3", ["judge.py"], {
+      cwd: judgeDir,
+      encoding: "utf8",
+      timeout: 60000,
+      env: { ...process.env, PYTHONPATH: dir },
+    });
+  } catch {
+    return { ok: false, note: "题面验收：跑不动（python3 起不来）" };
+  }
+  const out = ((r && r.stdout) || "") + ((r && r.stderr) || "");
+  const m = /RESULT ([0-9]+)[/]([0-9]+)/.exec(out);
+  if (m === null) {
+    const tail = out.trim().split("\n").slice(-1)[0] || "";
+    return { ok: false, note: "题面验收：跑不起来（" + entry.file + " 还没有，或 import 就失败了）｜" + tail.slice(0, 120) };
+  }
+  const passed = Number(m[1]);
+  const total = Number(m[2]);
+  const fails = out.split("\n").filter((line) => line.indexOf("FAIL #") === 0);
+  if (passed === total && total > 0) {
+    return { ok: true, note: "题面验收：" + String(passed) + "/" + String(total) + " 全绿 ✅" };
+  }
+  return {
+    ok: false,
+    note:
+      "题面验收：" + String(passed) + "/" + String(total) + " 通过"
+      + (fails.length > 0 ? "（首条失败 " + fails[0].slice(0, 90) + "）" : ""),
+  };
+}
 
 export function runSampleCheck(dir: string, mainName: string, sample: TaskSample): { ok: boolean; note: string } {
   /* P11-b：系统自己会跑题面样例（实测 p2482-p10：agent 的验收脚本自己消失了，系统只好说

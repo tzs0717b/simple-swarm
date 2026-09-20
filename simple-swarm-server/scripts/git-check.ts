@@ -22,7 +22,7 @@ import {
 import { WORKSPACE_ROOT } from "../src/config.ts";
 import { EventStore } from "../src/eventstore.ts";
 import { autoShipEvidence, detectHandoffs, fileVersionLines, handoffMailText } from "../src/agent/versions.ts";
-import { acceptanceLooksFailed, deliverReadyLine, hangNotice, looksLikeGreenCheck, looksLikeHang, parseTaskSample, sampleMatches, verifiedVerdict } from "../src/agent/versions.ts";
+import { acceptanceLooksFailed, deliverReadyLine, hangNotice, looksLikeGreenCheck, looksLikeHang, parseAcceptanceCases, parseTaskEntry, parseTaskSample, sampleMatches, verifiedVerdict } from "../src/agent/versions.ts";
 import { NO_TOOL_STREAK_LIMIT, idleNudgeBody } from "../src/agent/versions.ts";
 
 let pass = 0;
@@ -261,6 +261,21 @@ ok(parseTaskSample("这题没有样例") === null, "P11 样例：没有样例 ->
 ok(sampleMatches("FP" + "\n" + "DEAD", "FP" + "\n" + "DEAD"), "P11 样例对比：一样 -> 对上");
 ok(sampleMatches("FP   " + "\n" + "DEAD" + "\n" + "\n", "FP" + "\n" + "DEAD"), "P11 样例对比：行尾空格 + 末尾空行 -> 仍算对上");
 ok(!sampleMatches("MP" + "\n" + "DEAD", "FP" + "\n" + "DEAD"), "P11 样例对比：不一样 -> 对不上");
+
+/* ---- P12：从题面抽入口 + 验收用例（判分器在工作区之外跑） ---- */
+const goal12 = "【入口】calc.py，暴露 evaluate(text) -> int" + "\n" +
+  "【必须全部通过的验收用例】" + "\n" +
+  "assert evaluate('1+1') == 2" + "\n" +
+  "must_raise('1/0', '除零')" + "\n" +
+  "这不是用例，不该被抽走";
+const ent = parseTaskEntry(goal12);
+const cas = parseAcceptanceCases(goal12);
+ok(ent !== null && ent.file === "calc.py", "P12 入口：抽到 calc.py");
+ok(ent !== null && ent.fn === "evaluate", "P12 入口：抽到 evaluate");
+ok(cas.length === 2, "P12 用例：只抽 assert / must_raise（实得 " + String(cas.length) + "）");
+ok(cas[0].indexOf("assert evaluate") === 0, "P12 用例：第一条是 1+1");
+ok(parseTaskEntry("没有入口") === null, "P12 入口：没有【入口】-> null");
+ok(parseAcceptanceCases("这里一条用例都没有").length === 0, "P12 用例：没有 -> 空");
 
 console.log("（" + String(pass) + " 通过 / " + String(fail) + " 失败）");
 process.exit(fail === 0 ? 0 : 1);

@@ -199,6 +199,36 @@ export function sampleMatches(actual: string, expected: string): boolean {
   return norm(actual) === norm(expected);
 }
 
+/** 题面声明的入口（P12）：【入口】calc.py，暴露 evaluate(text) -> ... */
+export interface TaskEntry {
+  file: string;
+  fn: string;
+}
+
+/** 从题面抽入口文件名与入口函数；抽不到返回 null（不假装会判）。 */
+export function parseTaskEntry(goal: string): TaskEntry | null {
+  const i = goal.indexOf("【入口】");
+  if (i < 0) return null;
+  const head = goal.slice(i, i + 260);
+  const fm = /[A-Za-z0-9_]+[.]py/.exec(head);
+  if (fm === null) return null;
+  const nm = /暴露 *([A-Za-z_][A-Za-z0-9_]*) *[(]/.exec(head);
+  return { file: fm[0], fn: nm === null ? "evaluate" : nm[1] };
+}
+
+/**
+ * 题面里声明的验收用例（P12）：一行一条 assert 或 must_raise，判分器每轮自己跑。
+ * 这样 agent 把验收脚本删掉也影响不了判分（p2482-p10 就吃过这个亏）。
+ */
+export function parseAcceptanceCases(goal: string): string[] {
+  const out: string[] = [];
+  for (const raw of goal.split("\n")) {
+    const line = raw.trim();
+    if (line.startsWith("assert ") || line.startsWith("must_raise(")) out.push(line);
+  }
+  return out;
+}
+
 /**
  * 最终体检结论（P8）：把「最后一次验收跑绿的版本」和「最终版本」摆在一起。
  * 实测 p2482-p4：交付发生在 90%，之后 agent 还在改主产物，最后一次改动甚至落在

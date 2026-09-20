@@ -68,11 +68,11 @@ import {
   toolSendMail,
   toolWriteFile,
   type ToolResult,
-  runSampleCheck } from "./tools.ts";
+  runSampleCheck , runAcceptanceCases } from "./tools.ts";
 import { workspaceOf } from "./workspace.ts";
 import { commitStep, headSha } from "./gitworkspace.ts";
 import { goalDeliverable } from "../slicer.ts";
-import { NO_TOOL_STREAK_LIMIT, autoShipEvidence, detectHandoffs, handoffMailText, idleNudgeBody, looksLikeGreenCheck, type Handoff , verifiedVerdict , looksLikeHang, hangNotice , parseTaskSample } from "./versions.ts";
+import { NO_TOOL_STREAK_LIMIT, autoShipEvidence, detectHandoffs, handoffMailText, idleNudgeBody, looksLikeGreenCheck, type Handoff , verifiedVerdict , looksLikeHang, hangNotice , parseTaskSample , parseAcceptanceCases, parseTaskEntry } from "./versions.ts";
 import { toolChallenge, toolRespondChallenge, toolRuleChallenge } from "./tools.ts";
 
 export interface RunnerOptions {
@@ -1851,6 +1851,12 @@ export class AgentRunner {
   private sampleReport(): { ok: boolean; note: string } {
     try {
       const goal = this.store.getSwarm(this.swarmId)?.goal ?? "";
+      /* P12：题面给了成条的验收用例就优先跑它（部分分 + 每轮可比）；否则退回【样例输入/输出】对照。 */
+      const cases = parseAcceptanceCases(goal);
+      const entry = parseTaskEntry(goal);
+      if (cases.length > 0 && entry !== null) {
+        return runAcceptanceCases(workspaceOf(this.swarmId), entry, cases);
+      }
       const sample = parseTaskSample(goal);
       const main = goalDeliverable(goal);
       if (sample === null || main.length === 0) {
