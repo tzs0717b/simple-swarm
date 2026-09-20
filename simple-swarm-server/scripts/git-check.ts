@@ -22,7 +22,7 @@ import {
 import { WORKSPACE_ROOT } from "../src/config.ts";
 import { EventStore } from "../src/eventstore.ts";
 import { autoShipEvidence, detectHandoffs, fileVersionLines, handoffMailText } from "../src/agent/versions.ts";
-import { deliverReadyLine, looksLikeGreenCheck, verifiedVerdict } from "../src/agent/versions.ts";
+import { acceptanceLooksFailed, deliverReadyLine, hangNotice, looksLikeGreenCheck, looksLikeHang, verifiedVerdict } from "../src/agent/versions.ts";
 import { NO_TOOL_STREAK_LIMIT, idleNudgeBody } from "../src/agent/versions.ts";
 
 let pass = 0;
@@ -239,6 +239,18 @@ ok(!looksLikeGreenCheck("read", "退出码 0"), "非 bash 工具不算绿");
 ok(verifiedVerdict("abc1234", "", "").indexOf("未经验收") >= 0, "一次绿都没有 -> 结论说未经验收");
 ok(verifiedVerdict("abc1234", "abc1234", "10:00:00").indexOf("就是最后一次验收跑绿") >= 0, "版本一致 -> 对得上");
 ok(verifiedVerdict("abc1234", "def5678", "10:00:00").indexOf("又被改动过") >= 0, "版本不一致 -> 说被改过");
+
+/* ---- P10：挂死红灯（124 也是红灯）+ 验收闸不能只看退出码 ---- */
+ok(looksLikeHang("bash", "$ ./p2482  -> 退出码 124（30032ms）"), "P10 挂死：退出码 124 -> 算挂死");
+ok(looksLikeHang("bash", "$ x  -> 退出码 137（超过 30000ms 被强杀）"), "P10 挂死：强杀字样 -> 算挂死");
+ok(!looksLikeHang("bash", "$ ls  -> 退出码 0（12ms）"), "P10 挂死：退出码 0 -> 不算");
+ok(!looksLikeHang("read", "$ ./p2482  -> 退出码 124"), "P10 挂死：非 bash -> 不算");
+ok(acceptanceLooksFailed("测试用例 1 失败"), "P10 验收：输出带失败 -> 判不过");
+ok(acceptanceLooksFailed("Traceback (most recent call last):"), "P10 验收：Traceback -> 判不过");
+ok(!acceptanceLooksFailed("测试用例 1 通过"), "P10 验收：全通过 -> 判过");
+ok(hangNotice(0, "08:00:00", "x") === "", "P10 挂死一行：0 次 -> 空串");
+ok(hangNotice(3, "08:25:31", "betty").includes("3"), "P10 挂死一行：带次数");
+ok(hangNotice(3, "08:25:31", "betty").includes("betty"), "P10 挂死一行：带人");
 
 console.log("（" + String(pass) + " 通过 / " + String(fail) + " 失败）");
 process.exit(fail === 0 ? 0 : 1);

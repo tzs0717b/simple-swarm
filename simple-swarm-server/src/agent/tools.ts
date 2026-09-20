@@ -15,6 +15,7 @@ import { releaseSlice, takeSlice } from "../claims.ts";
 import { BASH_TIMEOUT_MS, SWARM_BLOCK_INSTALL } from "../config.ts";
 import { SWARM_BOARD_TALK_FIRST, SWARM_NEGOTIATE_BOARD } from "../config.ts";
 import { talkFirstPending } from "../board.ts";
+import { acceptanceLooksFailed } from "./versions.ts";
 import type { EventStore } from "../eventstore.ts";
 import { addressOf, localOf } from "../mail.ts";
 import { isRefusal, mailSharedClaimLine, sendMail } from "../send.ts";
@@ -389,6 +390,15 @@ export function runWorkspaceChecks(swarmId: string): { ok: boolean; note: string
       return { ok: false, note: "系统的验收闸没过：" + name + " 跑不动（超时或无法启动）。先把它修到能直接跑通再来交付。" };
     }
     const out = ((r.stdout ?? "") + (r.stderr ?? "")).trim();
+    /* P10-b：退出码 0 不等于验收通过 —— 实测脚本对不上只 print 失败、从不非零退出。 */
+    if (r.status === 0 && acceptanceLooksFailed(out)) {
+      return {
+        ok: false,
+        note:
+          "系统的验收闸没过：" + name + " 的退出码虽然是 0，但输出里有失败字样"
+          + "（只 print、不用非零退出码的脚本会骗过闸）。输出：" + out.slice(0, 200).replace(/[ ]+/g, " "),
+      };
+    }
     const tail = (out.length > 420 ? out.slice(out.length - 420) : out).replace(/\s+/g, " ");
     ran.push(name + " 退出码 " + String(r.status) + (tail ? "｜" + tail.slice(0, 160) : ""));
     if (r.status !== 0) {

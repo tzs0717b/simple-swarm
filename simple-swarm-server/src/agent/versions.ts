@@ -143,6 +143,32 @@ export function looksLikeGreenCheck(tool: string, detail: string): boolean {
 }
 
 /**
+ * 挂死判定（P10-a）：被强杀的退出码（124=超时，137=SIGKILL，143=SIGTERM）。
+ * 实测 p2482-p9：三个 agent 都看到过「退出码 124（30032ms）」，可系统这边它只是一条普通
+ * 观察 —— 不点名、不记账、不进交接班提醒。跑一个程序 30 秒被强杀，本该是红灯。
+ */
+export function looksLikeHang(tool: string, detail: string): boolean {
+  if (tool !== "bash") return false;
+  if (/被强杀/.test(detail)) return true;
+  return /退出码 (124|137|143)/.test(detail);
+}
+
+/**
+ * 验收脚本「嘴上说失败、退出码却是 0」的判定（P10-b）。
+ * 实测 p2482-p9 的 test_script.py：对不上只 print(测试用例 N 失败)，从不非零退出，而系统的
+ * 验收闸只看退出码 —— 于是「对不上」被判成「验收闸通过」。
+ */
+export function acceptanceLooksFailed(output: string): boolean {
+  return /失败|FAIL|failed|❌|Traceback|AssertionError|assert/i.test(output);
+}
+
+/** 收工体检里的「挂死」一行（P10-a）：没人挂过就返回空串。 */
+export function hangNotice(count: number, lastAt: string, lastAgent: string): string {
+  if (count === 0) return "";
+  return "本轮有 " + String(count) + " 次「跑挂死」（最近一次 " + lastAt + " 由 " + lastAgent + " 触发，被 30 秒强杀）";
+}
+
+/**
  * 最终体检结论（P8）：把「最后一次验收跑绿的版本」和「最终版本」摆在一起。
  * 实测 p2482-p4：交付发生在 90%，之后 agent 还在改主产物，最后一次改动甚至落在
  * 墙钟结束之后 —— 于是「证据看着是真的、产物却是坏的」。这里把它明说出来。

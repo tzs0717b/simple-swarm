@@ -71,7 +71,8 @@ import {
 } from "./tools.ts";
 import { workspaceOf } from "./workspace.ts";
 import { commitStep, headSha } from "./gitworkspace.ts";
-import { NO_TOOL_STREAK_LIMIT, autoShipEvidence, detectHandoffs, deliverReadyLine, handoffMailText, idleNudgeBody, looksLikeGreenCheck, type Handoff , verifiedVerdict } from "./versions.ts";
+import { goalDeliverable } from "../slicer.ts";
+import { NO_TOOL_STREAK_LIMIT, autoShipEvidence, detectHandoffs, handoffMailText, idleNudgeBody, looksLikeGreenCheck, type Handoff , verifiedVerdict , looksLikeHang, hangNotice } from "./versions.ts";
 import { toolChallenge, toolRespondChallenge, toolRuleChallenge } from "./tools.ts";
 
 export interface RunnerOptions {
@@ -214,6 +215,13 @@ export class AgentRunner {
   /* P8：最后一次「验收跑绿」的版本与时刻 —— 收工时判定最终产物到底验没验过 */
   private lastGreenAt = "";
   private lastGreenSha = "";
+  /* P10-a：挂死红灯 —— 被强杀（124/137/143）也当一等公民记账 */
+  private hangSeen = 0;
+  private hangLastAt = "";
+  private hangLastAgent = "";
+  private readonly hangMailed = new Map<string, number>();
+  /* P10-c：某个版本已经因为「验收后又改动」被警告过 */
+  private readonly postGreenWarned = new Set<string>();
   private greenCount = 0;
   /* 续跑广播只喊一次（历史遗留：用了但没声明，靠 JS 宽容没炸） */
   private resumeAnnounced = false;
@@ -541,6 +549,15 @@ export class AgentRunner {
             "verify",
           );
           this.appendSystemTrace("system", "交作业闸①：墙钟 " + Math.round(SWARM_SHIP_FRACTION * 100) + "%，提醒全队调用 complete_slice 按现状交付");
+          if (this.hangSeen > 0) {
+            const notice = hangNotice(this.hangSeen, this.hangLastAt, this.hangLastAgent);
+            this.mailTeam(
+              "【挂死提醒】本轮出现过跑挂死的产物",
+              notice + "交出去之前对齐一下顺序：让**最后一次验收**晚于**最后一次改动** —— 反过来的话，交付的证据是过期的。",
+              "verify",
+            );
+            this.appendSystemTrace("system", "挂死提醒：已广播全队（" + notice + "）");
+          }
         } else if (this.shipNudged === 1 && elapsedMs >= SWARM_RUN_MAX_MS * SWARM_SHIP_FINAL_FRACTION) {
           this.shipNudged = 2;
           const openNow = this.store.listSlices(this.swarmId).filter((info) => info.status === "claimed");
@@ -1688,13 +1705,16 @@ export class AgentRunner {
         : "系统体检：工作区里没有 test_/verify_/check_ 开头的可跑验收脚本，机器没法替你判。";
       this.appendSystemTrace("system", "最终快照：" + sha + "（工作区最终版本；文件 " + String(files.length) + " 个：" + tail + "）");
       this.appendSystemTrace("system", "最终体检：" + verdict + "｜" + checkLine + "｜本轮共看到 " + String(this.greenCount) + " 次验收跑绿");
+      const hangLine = hangNotice(this.hangSeen, this.hangLastAt, this.hangLastAgent);
+      if (hangLine.length > 0) this.appendSystemTrace("system", "最终体检（挂死）：" + hangLine);
       this.mailTeam(
         "【本轮结束】工作区最终版本 " + sha,
         "本轮结束时工作区的最终 git 版本是 " + sha + "。" + "\n" + "\n" +
           "注意：**交付之后被改动过的产物，以这个版本为准**（交付那一刻的证据可能已经过期）。" + "\n" +
           "下一轮接着干：git show " + sha + ":路径 取任意文件；git diff " + sha + " HEAD -- 路径 看后来改了什么。" + "\n" +
-          "文件清单：" + tail,
-          "\n\n" + "【验没验过】" + verdict + "\n" + checkLine,
+          "文件清单：" + tail +
+          "\n\n" + "【验没验过】" + verdict + "\n" + checkLine
+          + (hangLine.length > 0 ? "【挂死】" + hangLine : ""),
         "verify",
       );
     } catch (error) {
@@ -1775,6 +1795,43 @@ export class AgentRunner {
    * 绿跑点名（P5）：agent 刚把验收脚本跑绿 —— 这一刻就是交付的时机，系统点一次名。
    * 每个 agent 一轮最多点一次（默认上限 4 = 全员各一次），免得变成噪音。
    */
+  /**
+   * 挂死红灯（P10-a）：命令被 30 秒强杀时当场告诉那个 agent —— 别把它当「跑过了」。同时
+   * 记账（交接班提醒与收工体检都会说）。节流：每人每轮最多 3 封。
+   */
+  private nudgeHang(agent: string, tool: string, result: ToolResult): void {
+    if (!looksLikeHang(tool, result.detail)) return;
+    this.hangSeen += 1;
+    this.hangLastAt = clock();
+    this.hangLastAgent = agent;
+    this.appendSystemTrace(
+      "system",
+      "挂死红灯：" + agent + " 的命令被强杀（" + result.detail.slice(0, 70) + "）",
+    );
+    const sent = this.hangMailed.get(agent) ?? 0;
+    if (sent >= 3) return;
+    this.hangMailed.set(agent, sent + 1);
+    const body = [
+      "【挂死了】你刚跑的东西 30 秒没返回，被系统强杀了：",
+      "",
+      "  $ " + result.detail.slice(0, 120),
+      "",
+      "这不是「跑过了」，也不是「验收通过」—— 是产物卡死了。三件事挑一件：",
+      "  1) 修产物的死循环 / 等输入；",
+      "  2) 给验收脚本里每一次运行加超时（python：subprocess.run(..., timeout=10)），免得脚本",
+      "     自己跟着挂死、把 30 秒强杀误当成「脚本跑通了」；",
+      "  3) 到点也修不好的话：按现状交付，但在 evidence 里**明写**「产物在样例输入下会挂死（30s 强杀）」。说清楚 > 假装绿。",
+    ].join("\n");
+    sendMail(this.store, {
+      swarmId: this.swarmId,
+      from: "system",
+      to: [addressOf(agent, this.swarmId)],
+      subject: "【挂死了】产物 30 秒被强杀 —— 别当跑过了",
+      body,
+      kind: "verify",
+    });
+  }
+
   private nudgeGreenDelivery(agent: string, tool: string, result: ToolResult): void {
     if (looksLikeGreenCheck(tool, result.detail)) {
       this.lastGreenAt = clock();
@@ -1880,6 +1937,34 @@ export class AgentRunner {
           time: clock(),
         });
       }
+      /* P10-c：验收之后再动产物 = 证据作废。实测 p2482-p9：08:25:43 验收通过，08:26:31 betty
+         回滚了 p2482.cpp，最终交付的版本根本没验过 —— 那 80 秒里没人知道。这里当场广播
+         （同一个版本号只喊一次），让 agent 还有时间重跑验收。 */
+      {
+        const mainName = goalDeliverable(this.store.getSwarm(this.swarmId)?.goal ?? "");
+        const touchedMain = mainName.length > 0 && commit.changed.some((change) => change.path.endsWith(mainName));
+        if (
+          touchedMain &&
+          /* 一轮最多喊 3 次，免得变成刷屏 */
+          this.postGreenWarned.size < 3 &&
+          this.lastGreenSha.length > 0 &&
+          commit.commit !== this.lastGreenSha &&
+          !this.postGreenWarned.has(commit.commit)
+        ) {
+          this.postGreenWarned.add(commit.commit);
+          this.mailTeam(
+            "【证据作废】产物在最后一次验收之后又被改了",
+            "刚才 " + agent + " 改了 " + mainName + "（新版本 " + commit.commit + "）。"
+              + "最后一次验收跑绿是在 " + this.lastGreenAt + "、版本 " + this.lastGreenSha + " —— 也就是说**现在这个版本没验过**。" + "\n\n"
+              + "要么重跑一次验收（跑绿了再交），要么在 evidence 里明写「未经验收」。别把过期证据当交付依据。",
+            "verify",
+          );
+          this.appendSystemTrace(
+            "system",
+            "证据作废警示：" + agent + " 在验收（" + this.lastGreenAt + "，" + this.lastGreenSha + "）之后改了 " + mainName + "（" + commit.commit + "），已广播全队",
+          );
+        }
+      }
       /* 换手播报：这一版动了别人的文件。系统不做裁判，只负责把「你那版被顶掉了、怎么拿回来」说出口 */
       for (const handoff of detectHandoffs(before, commit.changed, agent)) {
         this.appendSystemTrace(
@@ -1980,6 +2065,7 @@ export class AgentRunner {
        归因靠工作区 diff —— agent 用 bash heredoc 写的文件也跑不掉（B2/B10 的教训）。 */
     this.commitWorkspace(agent, tool, result);
     this.nudgeGreenDelivery(agent, tool, result);
+    this.nudgeHang(agent, tool, result);
     this.trackNoTool(agent, tool);
     this.store.append({
       type: "usage.recorded",
