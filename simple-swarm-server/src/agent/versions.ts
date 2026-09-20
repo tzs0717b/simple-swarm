@@ -235,6 +235,27 @@ export function acceptScore(note: string): number | null {
   if (m === null) return null;
   return Number(m[1]);
 }
+/** 一批「退出码 0 但其实没跑到任何用例」的输出特征（P13-c）。 */
+const HOLLOW_GREEN = [
+  /Ran 0 tests?/i,
+  /collected 0 items/i,
+  /no tests ran/i,
+  /Executed 0 tests?/i,
+  /0 tests? (passed|found)/i,
+];
+
+/**
+ * 空绿的证据行（P13-c）：跑绿了但一个用例都没跑到，返回命中的那行；正常跑绿返回空串。
+ * calc-r1 实测：python3 -m unittest discover 跑 0 个用例照样返回退出码 0，
+ * 系统把它当「验收跑绿」还催了交付 —— 0 个用例的退出码 0 什么也没证明。
+ */
+export function hollowGreenLine(text: string): string {
+  for (const probe of HOLLOW_GREEN) {
+    const found = probe.exec(text);
+    if (found !== null) return found[0];
+  }
+  return "";
+}
 
 /**
  * 最终体检结论（P8）：把「最后一次验收跑绿的版本」和「最终版本」摆在一起。

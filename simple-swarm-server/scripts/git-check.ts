@@ -22,7 +22,7 @@ import {
 import { WORKSPACE_ROOT } from "../src/config.ts";
 import { EventStore } from "../src/eventstore.ts";
 import { autoShipEvidence, detectHandoffs, fileVersionLines, handoffMailText } from "../src/agent/versions.ts";
-import { acceptScore, acceptanceLooksFailed, deliverReadyLine, hangNotice, looksLikeGreenCheck, looksLikeHang, parseAcceptanceCases, parseTaskEntry, parseTaskSample, sampleMatches, verifiedVerdict } from "../src/agent/versions.ts";
+import { acceptScore, acceptanceLooksFailed, hollowGreenLine, deliverReadyLine, hangNotice, looksLikeGreenCheck, looksLikeHang, parseAcceptanceCases, parseTaskEntry, parseTaskSample, sampleMatches, verifiedVerdict } from "../src/agent/versions.ts";
 import { NO_TOOL_STREAK_LIMIT, idleNudgeBody } from "../src/agent/versions.ts";
 
 let pass = 0;
@@ -282,6 +282,13 @@ ok(acceptScore("题面验收：23/24 通过（首条失败 …）") === 23, "P13
 ok(acceptScore("题面验收：0/24 通过") === 0, "P13 分数：0/24 -> 0");
 ok(acceptScore("题面验收：24/24 全绿 ") === 24, "P13 分数：全绿 -> 24");
 ok(acceptScore("题面验收：跑不起来（calc.py 还没有）") === null, "P13 分数：跑不起来 -> null");
+
+/* ---- P13-c 空绿：0 个用例的退出码 0 不算通过 ---- */
+ok(hollowGreenLine("Ran 0 tests in 0.001s" + "\n" + "OK") !== "", "P13-c 空绿：Ran 0 tests -> 认出");
+ok(hollowGreenLine("Ran 24 tests in 0.02s" + "\n" + "OK") === "", "P13-c 空绿：Ran 24 tests -> 不算空绿");
+ok(hollowGreenLine("no tests ran in 0.01s") !== "", "P13-c 空绿：pytest no tests ran -> 认出");
+ok(hollowGreenLine("collected 0 items") !== "", "P13-c 空绿：pytest collected 0 -> 认出");
+ok(hollowGreenLine("3 passed in 0.02s") === "", "P13-c 空绿：3 passed -> 不算");
 
 console.log("（" + String(pass) + " 通过 / " + String(fail) + " 失败）");
 process.exit(fail === 0 ? 0 : 1);

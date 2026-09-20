@@ -72,7 +72,7 @@ import {
 import { workspaceOf } from "./workspace.ts";
 import { commitStep, headSha } from "./gitworkspace.ts";
 import { goalDeliverable } from "../slicer.ts";
-import { NO_TOOL_STREAK_LIMIT, autoShipEvidence, detectHandoffs, handoffMailText, idleNudgeBody, looksLikeGreenCheck, type Handoff , verifiedVerdict , looksLikeHang, hangNotice , parseTaskSample , parseAcceptanceCases, parseTaskEntry , acceptScore } from "./versions.ts";
+import { NO_TOOL_STREAK_LIMIT, autoShipEvidence, detectHandoffs, handoffMailText, idleNudgeBody, looksLikeGreenCheck, type Handoff , verifiedVerdict , looksLikeHang, hangNotice , parseTaskSample , parseAcceptanceCases, parseTaskEntry , acceptScore , hollowGreenLine } from "./versions.ts";
 import { toolChallenge, toolRespondChallenge, toolRuleChallenge } from "./tools.ts";
 
 export interface RunnerOptions {
@@ -1878,7 +1878,30 @@ export class AgentRunner {
   }
 
   private nudgeGreenDelivery(agent: string, tool: string, result: ToolResult): void {
-    if (looksLikeGreenCheck(tool, result.detail)) {
+    const detail = result.detail ?? "";
+    const greenNow = looksLikeGreenCheck(tool, detail);
+    const hollow = greenNow ? hollowGreenLine(result.observation ?? "") : "";
+    if (hollow.length > 0) {
+        /* P13-c：退出码 0 但一个用例都没跑到 —— 不算验收通过，也不算「可以交付了」的依据。
+           calc-r1 实测：sidney 的 unittest discover 跑 0 个用例返回 0，系统照播「跑绿了」并催交付。 */
+      if (!this.greenNudged.has(agent)) {
+        this.greenNudged.add(agent);
+        sendMail(this.store, {
+          swarmId: this.swarmId,
+          from: "system",
+          to: [addressOf(agent, this.swarmId)],
+          subject: "【空绿】这次验收一个用例都没跑，不算证据",
+          body:
+            "你跑的「" + detail.slice(0, 80) + "」退出码是 0，但输出里写着没跑到任何用例：" + "\n" + hollow + "\n" + "\n"
+            + "这不是「验收通过」—— 0 个用例的退出码 0 什么也没证明。" + "\n"
+            + "要么让你的验收脚本真的跑到用例，要么直接对着题面的验收用例改（系统每轮自己会跑那 24 条）。",
+          kind: "verify",
+        });
+        this.appendSystemTrace("system", "空绿点名：" + agent + " 的验收一个用例都没跑到（" + detail.slice(0, 60) + "）");
+      }
+      return;
+    }
+    if (greenNow) {
       this.lastGreenAt = clock();
       this.lastGreenSha = headSha(this.swarmId);
       this.greenCount += 1;
@@ -1887,8 +1910,7 @@ export class AgentRunner {
       if (SWARM_DELIVER_NUDGE_CAP <= 0) return;
       if (this.greenNudged.size >= SWARM_DELIVER_NUDGE_CAP) return;
       if (this.greenNudged.has(agent)) return;
-      const detail = result.detail ?? "";
-      if (!looksLikeGreenCheck(tool, detail)) return;
+      if (!greenNow) return;
       const claim = this.store.listClaims(this.swarmId).find((item) => item.agent === agent)?.slice;
       if (!claim) return;
       this.greenNudged.add(agent);
