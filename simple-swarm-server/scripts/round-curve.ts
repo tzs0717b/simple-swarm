@@ -53,28 +53,40 @@ for (const raw of log) {
 }
 const final = runAcceptanceCases(ws, entry, cases);
 /* P20：补盲区 —— 只跟入口文件会漏掉提交到别的文件的活动（实测 calc2-r4 的最终提交 bc3354a 改的是
- * calc_v4.py，曲线里看不见，看着像集群闲着）。这里把「动过别的文件」的最近几次提交也列出来。 */
-const otherFiles = execSync(
-  "git log --format=%h@@%ad@@%s --date=format:%H:%M:%S --name-only --max-count=25",
-  { cwd: ws, encoding: "utf8", maxBuffer: 1 << 24 },
-)
-  .split("@@")
-  .join("
-")
-  .split(/
-(?=[0-9a-f]{7,}
-)/);
-const otherHits: string[] = [];
-for (const chunk of otherFiles) {
-  const rows = chunk.split("
-").filter((item) => item.trim().length > 0);
-  if (rows.length < 2) continue;
-  const changed = rows.slice(1).filter((item) => item.trim() !== entry.file);
-  if (changed.length > 0) otherHits.push("    " + rows[0].slice(0, 78) + "  → " + changed.join("、"));
-}
-if (otherHits.length > 0) {
-  console.log("  ---- 还动过别的文件（入口文件之外的提交）----");
-  for (const line of otherHits.slice(0, 6)) console.log(line);
+ * calc_v4.py，曲线里看不见，看着像集群闲着）。这里把「动过入口文件之外的文件」的最近提交也列出来。
+ * 注意：全程不用反斜杠转义（上次就是这里把文件写坏的）。 */
+try {
+  const raw = execSync(
+    "git log --format=%h@@%ad@@%s --date=format:%H:%M:%S --name-only --max-count=25",
+    { cwd: ws, encoding: "utf8", maxBuffer: 1 << 24 },
+  );
+  const otherHits: string[] = [];
+  let header = "";
+  let files: string[] = [];
+  const flush = (): void => {
+    if (header.length > 0) {
+      const others = files.filter((name) => name.length > 0 && name !== entry.file);
+      if (others.length > 0) otherHits.push("    " + header + "  → " + others.join("、"));
+    }
+    header = "";
+    files = [];
+  };
+  for (const line of raw.split(String.fromCharCode(10))) {
+    const text = line.trim();
+    if (/^[0-9a-f]{7,}@@/.test(text)) {
+      flush();
+      header = text.replace("@@", " ").replace("@@", " ");
+      continue;
+    }
+    if (text.length > 0) files.push(text);
+  }
+  flush();
+  if (otherHits.length > 0) {
+    console.log("  ---- 还动过入口文件之外的文件的提交 ----");
+    for (const line of otherHits.slice(0, 6)) console.log(line);
+  }
+} catch {
+  /* 复判仪是给人看的，这一小块坏了不致命 */
 }
 console.log("  ---- 工作区现状（含未提交）: " + final.note.slice(0, 110));
 console.log("  ---- 峰值判断交给报告：上面每个版本的分都是机器重跑的，不是谁的自述。");
