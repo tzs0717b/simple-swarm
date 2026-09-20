@@ -14,8 +14,17 @@ if (!swarmId) {
   console.error("用法：node scripts/round-curve.ts <swarmId> [goalFile]");
   process.exit(2);
 }
-const goalFile = process.argv[3] ?? path.join(os.homedir(), ".dsh", "calc2-goal.txt");
-const goal = readFileSync(goalFile, "utf8");
+const goalFile = process.argv[3];
+let goal = "";
+try {
+  const resp = execSync("curl -s -m 10 http://127.0.0.1:8787/api/swarms/" + swarmId, { encoding: "utf8" });
+  goal = JSON.parse(resp).goal ?? "";
+} catch { /* fallback */ }
+if (!goal) {
+  const gf = goalFile ?? path.join(os.homedir(), ".dsh", "calc2-goal.txt");
+  goal = readFileSync(gf, "utf8");
+}
+// （旧行已删：goal 从 API 取，见上）
 const entry = parseTaskEntry(goal);
 const cases = parseAcceptanceCases(goal);
 if (entry === null || cases.length === 0) {
