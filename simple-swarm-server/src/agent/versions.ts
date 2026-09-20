@@ -168,6 +168,37 @@ export function hangNotice(count: number, lastAt: string, lastAgent: string): st
   return "本轮有 " + String(count) + " 次「跑挂死」（最近一次 " + lastAt + " 由 " + lastAgent + " 触发，被 30 秒强杀）";
 }
 
+/** 题面里的样例（P11-b）：系统自己知道标准答案，才谈得上独立判对错。 */
+export interface TaskSample {
+  input: string;
+  expected: string;
+}
+
+/**
+ * 从题面里抽【样例输入】/【样例输出】。抽不到就返回 null —— 没有样例的题目，机器不假装
+ * 自己会判（只说「没法替你判」）。
+ */
+export function parseTaskSample(goal: string): TaskSample | null {
+  const IN = "【样例输入】";
+  const OUT = "【样例输出】";
+  const i = goal.indexOf(IN);
+  if (i < 0) return null;
+  const j = goal.indexOf(OUT, i);
+  if (j < 0) return null;
+  const input = goal.slice(i + IN.length, j).trim();
+  const rest = goal.slice(j + OUT.length);
+  const stop = rest.indexOf("【");
+  const expected = (stop >= 0 ? rest.slice(0, stop) : rest).trim();
+  if (input.length === 0 || expected.length === 0) return null;
+  return { input, expected };
+}
+
+/** 样例对比：忽略行尾空格与首尾空行（做题最常见的假失败）。 */
+export function sampleMatches(actual: string, expected: string): boolean {
+  const norm = (text: string): string => text.replace(/[ ]+$/gm, "").trim();
+  return norm(actual) === norm(expected);
+}
+
 /**
  * 最终体检结论（P8）：把「最后一次验收跑绿的版本」和「最终版本」摆在一起。
  * 实测 p2482-p4：交付发生在 90%，之后 agent 还在改主产物，最后一次改动甚至落在

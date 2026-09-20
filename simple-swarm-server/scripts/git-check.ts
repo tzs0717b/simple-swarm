@@ -22,7 +22,7 @@ import {
 import { WORKSPACE_ROOT } from "../src/config.ts";
 import { EventStore } from "../src/eventstore.ts";
 import { autoShipEvidence, detectHandoffs, fileVersionLines, handoffMailText } from "../src/agent/versions.ts";
-import { acceptanceLooksFailed, deliverReadyLine, hangNotice, looksLikeGreenCheck, looksLikeHang, verifiedVerdict } from "../src/agent/versions.ts";
+import { acceptanceLooksFailed, deliverReadyLine, hangNotice, looksLikeGreenCheck, looksLikeHang, parseTaskSample, sampleMatches, verifiedVerdict } from "../src/agent/versions.ts";
 import { NO_TOOL_STREAK_LIMIT, idleNudgeBody } from "../src/agent/versions.ts";
 
 let pass = 0;
@@ -251,6 +251,16 @@ ok(!acceptanceLooksFailed("测试用例 1 通过"), "P10 验收：全通过 -> �
 ok(hangNotice(0, "08:00:00", "x") === "", "P10 挂死一行：0 次 -> 空串");
 ok(hangNotice(3, "08:25:31", "betty").includes("3"), "P10 挂死一行：带次数");
 ok(hangNotice(3, "08:25:31", "betty").includes("betty"), "P10 挂死一行：带人");
+
+/* ---- P11-b：系统自己知道标准答案（题面样例） ---- */
+const goalText = "【任务】写点东西" + "\n" + "【样例输入】" + "\n" + "3 10" + "\n" + "MP D D" + "\n" + "【样例输出】" + "\n" + "FP" + "\n" + "DEAD" + "\n" + "【数据范围】不告诉你";
+const parsed = parseTaskSample(goalText);
+ok(parsed !== null && parsed.input === "3 10" + "\n" + "MP D D", "P11 样例：输入抽对了");
+ok(parsed !== null && parsed.expected === "FP" + "\n" + "DEAD", "P11 样例：输出抽对了（在【数据范围】前停下）");
+ok(parseTaskSample("这题没有样例") === null, "P11 样例：没有样例 -> null（不假装会判）");
+ok(sampleMatches("FP" + "\n" + "DEAD", "FP" + "\n" + "DEAD"), "P11 样例对比：一样 -> 对上");
+ok(sampleMatches("FP   " + "\n" + "DEAD" + "\n" + "\n", "FP" + "\n" + "DEAD"), "P11 样例对比：行尾空格 + 末尾空行 -> 仍算对上");
+ok(!sampleMatches("MP" + "\n" + "DEAD", "FP" + "\n" + "DEAD"), "P11 样例对比：不一样 -> 对不上");
 
 console.log("（" + String(pass) + " 通过 / " + String(fail) + " 失败）");
 process.exit(fail === 0 ? 0 : 1);

@@ -9,13 +9,13 @@
  * 整条管线（工具定义 → 事件落盘 → 预算记账 → 行为流）一行都不用改，只换掉"谁来决策"。
  */
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, unlinkSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { releaseSlice, takeSlice } from "../claims.ts";
 import { BASH_TIMEOUT_MS, SWARM_BLOCK_INSTALL } from "../config.ts";
 import { SWARM_BOARD_TALK_FIRST, SWARM_NEGOTIATE_BOARD } from "../config.ts";
 import { talkFirstPending } from "../board.ts";
-import { acceptanceLooksFailed } from "./versions.ts";
+import { acceptanceLooksFailed, sampleMatches, type TaskSample } from "./versions.ts";
 import type { EventStore } from "../eventstore.ts";
 import { addressOf, localOf } from "../mail.ts";
 import { isRefusal, mailSharedClaimLine, sendMail } from "../send.ts";
@@ -371,6 +371,49 @@ export function toolReleaseSlice(ctx: ToolContext, slice: string): ToolResult {
  *  但脚本第 372 行就是语法错误，全队 10 个人没一个发现，交付照样记成 completed —— 契约写在纸上没人执行。
  *  所以改成：脚本跑不起来、或报 FAIL（非 0 退出），交付直接打回；输出挂进证据，让人看得见。 */
 const CHECK_SCRIPT_RE = /^(check|verify|test)[a-z0-9_-]*\.py$|^[a-z0-9_-]*_check\.py$/i;
+
+export function runSampleCheck(dir: string, mainName: string, sample: TaskSample): { ok: boolean; note: string } {
+  /* P11-b：系统自己会跑题面样例（实测 p2482-p10：agent 的验收脚本自己消失了，系统只好说
+     「没有可跑脚本」，最后只有人手工判对错）。 */
+  const bin = "swarm_sample_bin";
+  const shim = String(process.env.HOME ?? "") + "/.dsh/bitshimbits";
+  try { unlinkSync(path.join(dir, bin)); } catch { /* 没有就算了 */ }
+  if (mainName.endsWith(".cpp")) {
+    let c = spawnSync("g++", ["-std=c++17", "-O1", "-I", shim, mainName, "-o", bin], {
+      cwd: dir,
+      encoding: "utf8",
+      timeout: 90000,
+    });
+    /* 没装本地 shim 就退回最普通的一次编译（不改 agent 的代码，只换编译参数） */
+    const bad = !c || c.status !== 0;
+    if (bad) c = spawnSync("g++", ["-std=c++17", "-O1", mainName, "-o", bin], { cwd: dir, encoding: "utf8", timeout: 90000 });
+    if (!c || c.status !== 0) {
+      const err = String((c && c.stderr) || (c && c.error) || "").trim().split("\n").slice(0, 3).join(" / ");
+      return { ok: false, note: "题面样例：❌ 编译不过（" + mainName + "）" + err.slice(0, 200) };
+    }
+  }
+  const cmd = mainName.endsWith(".py") ? "python3" : "./" + bin;
+  const arg = mainName.endsWith(".py") ? mainName : "";
+  const args = arg.length > 0 ? [arg] : [];
+  let r;
+  try {
+    r = spawnSync(cmd, args, { cwd: dir, encoding: "utf8", input: sample.input, timeout: 30000 });
+  } catch {
+    return { ok: false, note: "题面样例：❌ 起不来（" + mainName + "）" };
+  }
+  try { unlinkSync(path.join(dir, bin)); } catch { /* 尽力 */ }
+  const killed = !r || r.status === null || r.status === undefined;
+  if (killed) {
+    return { ok: false, note: "题面样例：❌ 跑挂死了（喂样例 30 秒没返回，被强杀）" };
+  }
+  const actual = String(r.stdout ?? "");
+  if (sampleMatches(actual, sample.expected)) return { ok: true, note: "题面样例：✅ 对上了" };
+  const oneLine = (text: string): string => text.trim().replace(/[ ]*\\s*\\n[ ]*/g, " / ").slice(0, 120);
+  return {
+    ok: false,
+    note: "题面样例：❌ 对不上｜期望 " + oneLine(sample.expected) + "｜实测 " + oneLine(actual),
+  };
+}
 
 export function runWorkspaceChecks(swarmId: string): { ok: boolean; note: string } {
   const dir = workspaceOf(swarmId);

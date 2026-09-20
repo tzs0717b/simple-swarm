@@ -68,11 +68,11 @@ import {
   toolSendMail,
   toolWriteFile,
   type ToolResult,
-} from "./tools.ts";
+  runSampleCheck } from "./tools.ts";
 import { workspaceOf } from "./workspace.ts";
 import { commitStep, headSha } from "./gitworkspace.ts";
 import { goalDeliverable } from "../slicer.ts";
-import { NO_TOOL_STREAK_LIMIT, autoShipEvidence, detectHandoffs, handoffMailText, idleNudgeBody, looksLikeGreenCheck, type Handoff , verifiedVerdict , looksLikeHang, hangNotice } from "./versions.ts";
+import { NO_TOOL_STREAK_LIMIT, autoShipEvidence, detectHandoffs, handoffMailText, idleNudgeBody, looksLikeGreenCheck, type Handoff , verifiedVerdict , looksLikeHang, hangNotice , parseTaskSample } from "./versions.ts";
 import { toolChallenge, toolRespondChallenge, toolRuleChallenge } from "./tools.ts";
 
 export interface RunnerOptions {
@@ -557,6 +557,15 @@ export class AgentRunner {
               "verify",
             );
             this.appendSystemTrace("system", "挂死提醒：已广播全队（" + notice + "）");
+            const sampleNow = this.sampleReport();
+            if (!sampleNow.ok) {
+              this.mailTeam(
+                "【题面样例没过】机器自己跑的结果在下面",
+                sampleNow.note + "\n" + "这是系统拿**题面自带的标准答案**跑的（不是谁的验收脚本）—— 交之前想办法让它对上。" + "\n",
+                "verify",
+              );
+              this.appendSystemTrace("system", "题面样例红灯：" + sampleNow.note);
+            }
           }
         } else if (this.shipNudged === 1 && elapsedMs >= SWARM_RUN_MAX_MS * SWARM_SHIP_FINAL_FRACTION) {
           this.shipNudged = 2;
@@ -1707,6 +1716,8 @@ export class AgentRunner {
       this.appendSystemTrace("system", "最终体检：" + verdict + "｜" + checkLine + "｜本轮共看到 " + String(this.greenCount) + " 次验收跑绿");
       const hangLine = hangNotice(this.hangSeen, this.hangLastAt, this.hangLastAgent);
       if (hangLine.length > 0) this.appendSystemTrace("system", "最终体检（挂死）：" + hangLine);
+      const sampleNote = this.sampleReport().note;
+      this.appendSystemTrace("system", "最终体检（题面样例）：" + sampleNote);
       this.mailTeam(
         "【本轮结束】工作区最终版本 " + sha,
         "本轮结束时工作区的最终 git 版本是 " + sha + "。" + "\n" + "\n" +
@@ -1714,7 +1725,8 @@ export class AgentRunner {
           "下一轮接着干：git show " + sha + ":路径 取任意文件；git diff " + sha + " HEAD -- 路径 看后来改了什么。" + "\n" +
           "文件清单：" + tail +
           "\n\n" + "【验没验过】" + verdict + "\n" + checkLine
-          + (hangLine.length > 0 ? "【挂死】" + hangLine : ""),
+          + (hangLine.length > 0 ? "【挂死】" + hangLine : "")
+          + "\n\n" + sampleNote,
         "verify",
       );
     } catch (error) {
@@ -1830,6 +1842,24 @@ export class AgentRunner {
       body,
       kind: "verify",
     });
+  }
+
+  /**
+   * P11-b：系统自己跑一遍题面样例 —— 标准答案写在题面里，agent 删不掉。
+   * 实测 p2482-p10：agent 的验收脚本自己消失了，系统只好说「没有可跑脚本」，最后只有人手工判。
+   */
+  private sampleReport(): { ok: boolean; note: string } {
+    try {
+      const goal = this.store.getSwarm(this.swarmId)?.goal ?? "";
+      const sample = parseTaskSample(goal);
+      const main = goalDeliverable(goal);
+      if (sample === null || main.length === 0) {
+        return { ok: false, note: "题面样例：没法判（题面里没有【样例输入】/【样例输出】，或认不出主产物文件名）" };
+      }
+      return runSampleCheck(workspaceOf(this.swarmId), main, sample);
+    } catch (error) {
+      return { ok: false, note: "题面样例：跑不动（" + String(error).slice(0, 80) + "）" };
+    }
   }
 
   private nudgeGreenDelivery(agent: string, tool: string, result: ToolResult): void {
