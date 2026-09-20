@@ -16,6 +16,7 @@ import { BASH_TIMEOUT_MS, SWARM_BLOCK_INSTALL } from "../config.ts";
 import { SWARM_BOARD_TALK_FIRST, SWARM_NEGOTIATE_BOARD } from "../config.ts";
 import { talkFirstPending } from "../board.ts";
 import { acceptanceLooksFailed, sampleMatches, type TaskEntry, type TaskSample } from "./versions.ts";
+import { parseAcceptanceCases, parseTaskEntry } from "./versions.ts";
 import type { EventStore } from "../eventstore.ts";
 import { addressOf, localOf } from "../mail.ts";
 import { isRefusal, mailSharedClaimLine, sendMail } from "../send.ts";
@@ -836,6 +837,31 @@ export interface ToolSpec {
   };
 }
 
+/** P16：让 agent 自己就能量到「题面验收」的真分（只读，不拦任何动作）。
+ *  calc2-r1/r2 两轮的产物都是收尾前 24 秒被改坏的：agent 手里只有 bash/read/write，
+ *  题面那 59 条用例得自己抄成脚本才跑得动 —— 抄不动就不抄，于是盲改。
+ *  系统本来就每轮在跑这份用例，把它开放成一个只读工具，等于把「真分」从系统独占
+ *  变成人人随时可查：改完一处先量一眼，比事后被退步警报点名便宜得多。 */
+export function toolCheckAcceptance(ctx: ToolContext): ToolResult {
+  const goal = ctx.store.getSwarm(ctx.swarmId)?.goal ?? "";
+  const entry = parseTaskEntry(goal);
+  const cases = parseAcceptanceCases(goal);
+  if (entry === null || cases.length === 0) {
+    return {
+      observation: "本轮的题面里没有可执行的验收用例（或没写【入口】），系统判不了分 —— 自己写脚本验。",
+      detail: "自检验收：题面里没有用例",
+    };
+  }
+  const report = runAcceptanceCases(workspaceOf(ctx.swarmId), entry, cases);
+  return {
+    observation:
+      report.note + "\n\n（这是系统拿**题面自带的**用例跑当前 " + entry.file + " 的结果：只读、不拦任何动作；"
+      + "交作业之前、每改完一处都建议先跑一次。）",
+    detail: "自检验收：" + (report.ok ? "全绿 ✅ " : "") + report.note.slice(0, 96),
+  };
+}
+
+
 const NO_ARGS: ToolSpec["parameters"] = { type: "object", properties: {}, required: [] };
 
 export const SWARMKIT: ToolSpec[] = [
@@ -881,6 +907,11 @@ export const SWARMKIT: ToolSpec[] = [
       },
       required: ["path", "old", "new"],
     },
+  },
+  {
+    name: "check_acceptance",
+    help: "量一下「题面验收」的真分：系统拿题面自带的验收用例跑当前工作区，告诉你过了几条、第一条挂在哪儿。只读、不改任何东西，随时可跑 —— 每改完一处、交作业之前都建议跑一次。",
+    parameters: NO_ARGS,
   },
   { name: "read_inbox", help: "看自己收件箱里的未读邮件（最老的在前）。", parameters: NO_ARGS },
   { name: "list_mailboxes", help: "列出本集群所有邮箱和各自未读数（谁在场、该找谁）。", parameters: NO_ARGS },

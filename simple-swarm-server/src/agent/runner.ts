@@ -54,6 +54,7 @@ import {
   toolBash,
   toolBroadcast,
   toolClaimSlice,
+  toolCheckAcceptance,
   toolCompleteSlice,
   toolDone,
   toolHandoff,
@@ -1646,6 +1647,8 @@ export class AgentRunner {
     switch (decision.tool) {
       case "read_inbox":
         return toolReadInbox(ctx);
+      case "check_acceptance":
+        return toolCheckAcceptance(ctx);
       case "list_mailboxes":
         return toolListMailboxes(ctx);
       case "mark_read":

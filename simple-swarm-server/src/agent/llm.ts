@@ -225,6 +225,8 @@ export function toDecision(name: string, rawArgs: string): Decision {
     }
     case "read_inbox":
       return { tool: "read_inbox" };
+    case "check_acceptance":
+      return { tool: "check_acceptance" };
     case "list_mailboxes":
       return { tool: "list_mailboxes" };
     case "mark_read": {
@@ -592,6 +594,7 @@ export class LlmBrain implements Brain {
         "【可用工具】",
       "- bash：在工作目录里跑命令（ls、python3、playwright、PIL 都在）",
       "- read / write / edit：读写工作目录里的文件（相对路径）",
+      "- check_acceptance：让系统拿**题面自带的**验收用例跑一遍当前工作区，告诉你过了几条、第一条挂在哪儿（只读，随时可跑）。**每改完一处、交作业之前都先跑一次** —— 别凭感觉宣布通过。",
       "- publish_slice / claim_slice / complete_slice：看板流程",
       "- read_inbox / send_mail / reply：沟通",
       "- done：收工（confirm 写清谁验证的、验证了什么、结论）",

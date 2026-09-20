@@ -34,6 +34,7 @@ export interface BrainContext {
 /** 大脑做出的决定：调哪个工具、带什么参数 */
 export type Decision =
   | { tool: "read_inbox" }
+  | { tool: "check_acceptance" }
   | { tool: "list_mailboxes" }
   | { tool: "mark_read"; mailId: string }
   | { tool: "archive"; mailId: string }

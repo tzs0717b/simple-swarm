@@ -179,6 +179,8 @@ export interface ChallengeInfo {
 export type TraceType =
   /* 真·干活工具：在自己的工作目录里动手 */
   | "bash"
+  /* P16：只读自检 —— 拿题面自带用例量当前工作区 */
+  | "check_acceptance"
   | "read"
   | "write"
   | "edit"
