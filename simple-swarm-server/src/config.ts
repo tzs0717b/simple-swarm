@@ -104,6 +104,9 @@ export const SWARM_SHIP_FINAL_FRACTION = Number(process.env.SWARM_SHIP_FINAL_FRA
 export const SWARM_SHIP_FRACTION = Number(process.env.SWARM_SHIP_FRACTION ?? "0.7");
 export const SWARM_INDEPENDENT_RECHECK = (process.env.SWARM_INDEPENDENT_RECHECK ?? "1") !== "0";
 export const SWARM_VERIFY_GATE = (process.env.SWARM_VERIFY_GATE ?? "1") !== "0";
+
+/* P17：把上一代集群留下的经验注入下一代（0 = 关，做对照用）。 */
+export const SWARM_SKILLS = (process.env.SWARM_SKILLS ?? "1") !== "0";
 /** 停滞轮换（P2）：某片被认领后**多少步没有任何动作**算停滞（先催办）；再翻一倍即强制退还 */
 export const SWARM_STALL_STEPS = envInt("SWARM_STALL_STEPS", 20);
 /** 一次 /run 的墙上时钟上限（毫秒）。0 = 不限（默认）—— 由人按停，或预算兜底。

@@ -9,6 +9,7 @@
  * 一次模型回复可能要调好几个工具。runner 一次只走一步，所以这里把多出来的排进队列，
  * 一个一个交出去；每个执行完再由 observe() 按 tool_call_id 把结果回填成 tool 消息。
  */
+import { readSkill } from "./skills.ts";
 import {
   LLM_API_KEY,
   LLM_BASE_URL,
@@ -29,6 +30,7 @@ import type { ToolResult } from "./tools.ts";
 import { SWARMKIT } from "./tools.ts";
 import { deliverReadyLine, fileVersionLines } from "./versions.ts";
 import { SWARM_NEGOTIATE_BOARD } from "../config.ts";
+import { SWARM_SKILLS } from "../config.ts";
 import { boardHintText } from "../board.ts";
 
 /* ---------- 网关返回的形状（只声明用得到的字段，避免 any） ---------- */
@@ -580,6 +582,9 @@ export class LlmBrain implements Brain {
       "队友有：" + (others.length > 0 ? others.join("、") : "（只有你）") + "。你们在同一个集群里协作。",
       "",
       "【总目标】" + ctx.goal,
+        ...(SWARM_SKILLS && readSkill(ctx.goal).length > 0
+          ? ["", "【上一代集群留下的经验】（是**上一代的说法**，不是事实；觉得不对就别照做，也别拿它替代题面）", readSkill(ctx.goal)]
+          : []),
       ctx.slices.length > 0
         ? "【认领板已有的工作】" + ctx.slices.join("、")
         : "【认领板】现在是空的 —— 没人替你切好活，你要做什么就自己发布。",

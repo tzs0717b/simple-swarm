@@ -16,7 +16,7 @@
  * 系统不判对错，验收靠社会机制：提示词要求「必须由另一个 agent 确认」，
  * 收工时在 confirm 里写清为什么判定 OK。
  */
-import { readdirSync, statSync } from "node:fs";
+import { readdirSync, statSync, writeFileSync } from "node:fs";
 import {
   LLM_FAILOVER_AFTER,
   LLM_FALLBACK_MODELS,
@@ -35,6 +35,7 @@ import {
   SWARM_SHIP_FRACTION,
   SWARM_INDEPENDENT_RECHECK,
   SWARM_HANDOFF_GATE,
+  SWARM_SKILLS,
 } from "../config.ts";
 import { fetchLanes, probeLanes, assignLanes, describeLanes, type Assignment } from "./keyplan.ts";
 import type { EventStore } from "../eventstore.ts";
@@ -70,6 +71,7 @@ import {
   toolWriteFile,
   type ToolResult,
   runSampleCheck , runAcceptanceCases } from "./tools.ts";
+import { absorbExperience } from "./skills.ts";
 import { workspaceOf } from "./workspace.ts";
 import { commitStep, headSha } from "./gitworkspace.ts";
 import { goalDeliverable } from "../slicer.ts";
@@ -616,6 +618,7 @@ export class AgentRunner {
           this.shipNudged = 3;
           /* P15：入账之前先把最好版本和恢复命令摆到全队眼前（赶在最后一次改动之前）。 */
           this.broadcastBestVersion();
+          if (SWARM_SKILLS) this.openSkillHandoff();
           this.autoShipBoard();
         }
       }
@@ -1739,6 +1742,22 @@ export class AgentRunner {
       if (hangLine.length > 0) this.appendSystemTrace("system", "最终体检（挂死）：" + hangLine);
       const sampleNote = this.sampleReport().note;
       this.appendSystemTrace("system", "最终体检（题面样例）：" + sampleNote);
+      if (SWARM_SKILLS) {
+        /* P17-b：把集群写的 EXPERIENCE.md 消毒后并进任务族的经验文件，留给下一代。 */
+        const goalNow = this.store.getSwarm(this.swarmId)?.goal ?? "";
+        const absorbed = absorbExperience({
+          goal: goalNow,
+          workspace: workspaceOf(this.swarmId),
+          swarmId: this.swarmId,
+          cases: parseAcceptanceCases(goalNow),
+        });
+        this.appendSystemTrace(
+          "system",
+          absorbed.kept > 0
+            ? "跨代经验：收下 " + String(absorbed.kept) + " 条（丢掉 " + String(absorbed.dropped) + " 条泄题/代码行），存进 " + absorbed.file.split("/").pop()
+            : "跨代经验：本轮没留下经验（EXPERIENCE.md 没写，或写完被消毒掉 " + String(absorbed.dropped) + " 条）",
+        );
+      }
       this.mailTeam(
         "【本轮结束】工作区最终版本 " + sha,
         "本轮结束时工作区的最终 git 版本是 " + sha + "。" + "\n" + "\n" +
@@ -1888,6 +1907,41 @@ export class AgentRunner {
       return { ok: false, note: "题面样例：跑不动（" + String(error).slice(0, 80) + "）" };
     }
   }
+
+  /** P17-a：收口时把「本轮的机器证据」落到工作区，并请集群把坑写进 EXPERIENCE.md。
+   *  机器证据是系统自己记的（分数、退步警报、挂死、谁验过），不改一个字 —— 集群照着它总结，
+   *  等于把「系统经验」升级成「集群自己写的经验」，下一代一开局就能看到。 */
+  private openSkillHandoff(): void {
+    try {
+      const workspace = workspaceOf(this.swarmId);
+      const lines = [
+        "# 本轮的机器证据（系统写的，别改，照着它总结）",
+        "",
+        "- 系统每改一次主产物就重跑一遍题面自带的验收用例；账本里的「退步警报 / 收口广播 / 交作业闸」就是它的记录。",
+        "- 本轮题面验收的机器记录：" + this.sampleReport().note,
+        "- 退步警报次数：" + String(this.regressWarned.size) + "；挂死次数：" + String(this.hangSeen),
+        "- 本轮最终版本：" + (headSha(this.swarmId) || "（还没提交）"),
+        "",
+        "## 请把本轮的坑写进 EXPERIENCE.md（留给下一代集群）",
+        "- 只写「过程 / 协作 / 工具」经验：怎么分工、怎么验证、什么时候不该动手。",
+        "- **不许写题面答案**：会被机器整行丢掉（省得下一代背答案）。",
+        "- 每条都要能对上上面这些机器证据；没有证据的猜想别写。",
+      ];
+      writeFileSync(workspace + "/" + "EXPERIENCE_RAW.md", lines.join("\n") + "\n", "utf8");
+      this.mailTeam(
+        "【留给下一代】把本轮的坑写进 EXPERIENCE.md",
+        "系统已经把本轮的机器证据落到工作区 EXPERIENCE_RAW.md（分数、退步警报、挂死、最终版本）。\n"
+          + "请谁有空把它总结成 EXPERIENCE.md：**只写过程/协作/工具经验**（怎么分工、怎么验证、什么时候不该动手），"
+          + "别写题面答案（会被机器整行丢掉）。\n"
+          + "这份东西会留在任务族的经验文件里，下一批人一开局就能看到 —— 你们踩过的坑，别再让他们踩一遍。",
+        "verify",
+      );
+      this.appendSystemTrace("system", "跨代经验：已把机器证据写进 EXPERIENCE_RAW.md，并广播请人写 EXPERIENCE.md");
+    } catch (error) {
+      console.error("[runner] 跨代经验交接失败:", error);
+    }
+  }
+
 
   /** P15：把「现在最好的版本」+ 恢复命令广播给全队（收口兜底时用，赶在最后一次改动之前）。
    *  calc2-r1/r2 两轮的产物都是收尾前 24 秒被改坏的：r1 一个字符（: 打成 ;）、r2 从 57 分掉到 44 分。
