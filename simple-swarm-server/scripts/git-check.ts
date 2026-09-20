@@ -22,7 +22,7 @@ import {
 import { WORKSPACE_ROOT } from "../src/config.ts";
 import { EventStore } from "../src/eventstore.ts";
 import { autoShipEvidence, detectHandoffs, fileVersionLines, handoffMailText } from "../src/agent/versions.ts";
-import { deliverReadyLine, looksLikeGreenCheck } from "../src/agent/versions.ts";
+import { deliverReadyLine, looksLikeGreenCheck, verifiedVerdict } from "../src/agent/versions.ts";
 import { NO_TOOL_STREAK_LIMIT, idleNudgeBody } from "../src/agent/versions.ts";
 
 let pass = 0;
@@ -226,6 +226,19 @@ ok(idle3.includes("还没有任何属于你的产出"), "认领了但零产出 -
 const idle4 = idleNudgeBody([], true, 3, "dave");
 ok(idle4.includes("complete_slice"), "有产出没交付 -> 催交付");
 ok(NO_TOOL_STREAK_LIMIT === 2, "连续 2 次不调工具才点名（别一惊一乍）");
+
+console.log("");
+console.log("=== P8 验收判定收紧 + 最终体检 ===");
+ok(!looksLikeGreenCheck("bash", "bash: $ ls -la && echo --- && cat test_script.py 2>/dev/null | head → 退出码 0（91ms）"), "只看不跑（ls/cat）不算绿：上一版误判的那条");
+ok(looksLikeGreenCheck("bash", "bash: $ python3 test_script.py → 退出码 0（1350ms）"), "真跑验收脚本算绿");
+ok(looksLikeGreenCheck("bash", "bash: $ g++ -std=c++17 -o p2482 p2482.cpp → 退出码 0（900ms）"), "编译算绿");
+ok(looksLikeGreenCheck("bash", "bash: $ ./p2482 < input.txt → 退出码 0（12ms）"), "执行产物算绿");
+ok(!looksLikeGreenCheck("bash", "bash: $ git show f8951fe:p2482.cpp > p2482.cpp && cat p2482.cpp → 退出码 0（27ms）"), "取回旧版本不算验收（p2482-p4 真实日志）");
+ok(!looksLikeGreenCheck("bash", "bash: $ python3 test_script.py → 退出码 1（100ms）"), "非 0 退出码不算绿");
+ok(!looksLikeGreenCheck("read", "退出码 0"), "非 bash 工具不算绿");
+ok(verifiedVerdict("abc1234", "", "").indexOf("未经验收") >= 0, "一次绿都没有 -> 结论说未经验收");
+ok(verifiedVerdict("abc1234", "abc1234", "10:00:00").indexOf("就是最后一次验收跑绿") >= 0, "版本一致 -> 对得上");
+ok(verifiedVerdict("abc1234", "def5678", "10:00:00").indexOf("又被改动过") >= 0, "版本不一致 -> 说被改过");
 
 console.log("（" + String(pass) + " 通过 / " + String(fail) + " 失败）");
 process.exit(fail === 0 ? 0 : 1);

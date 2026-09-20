@@ -47,7 +47,9 @@ import type { Brain, BrainContext, Decision, StepUsage } from "./brain.ts";
 import { sweepChallenges } from "../challenges.ts";
 import { SWARM_GOAL_CHARS, SWARM_BOARD_DEADLINE_FRACTION, SWARM_NEGOTIATE_BOARD, SWARM_RUN_MAX_MS, SWARM_PROTOTYPE_FRACTION, SWARM_INBOX_GATE, SWARM_PROTOTYPE_MIN_BUDGET, SWARM_PROTOTYPE_BUDGET, SWARM_HANDOFF_THROTTLE_MS, SWARM_HANDOFF_MAIL_CAP, SWARM_AUTOSHIP_FRACTION, SWARM_DELIVER_NUDGE_CAP, SWARM_IDLE_NUDGE_FRACTION } from "../config.ts";
 import { boardDeadlineReached, boardTimeoutText, negotiateKickoffText, resumeKickoffText } from "../board.ts";
+import { SWARM_TALK_DOWNGRADE_FRACTION } from "../board.ts";
 import {
+  runWorkspaceChecks,
   toolArchive,
   toolBash,
   toolBroadcast,
@@ -69,8 +71,7 @@ import {
 } from "./tools.ts";
 import { workspaceOf } from "./workspace.ts";
 import { commitStep, headSha } from "./gitworkspace.ts";
-import { NO_TOOL_STREAK_LIMIT, autoShipEvidence, detectHandoffs, deliverReadyLine, handoffMailText, idleNudgeBody, looksLikeGreenCheck, type Handoff } from "./versions.ts";
-import { runWorkspaceChecks } from "./tools.ts";
+import { NO_TOOL_STREAK_LIMIT, autoShipEvidence, detectHandoffs, deliverReadyLine, handoffMailText, idleNudgeBody, looksLikeGreenCheck, type Handoff , verifiedVerdict } from "./versions.ts";
 import { toolChallenge, toolRespondChallenge, toolRuleChallenge } from "./tools.ts";
 
 export interface RunnerOptions {
@@ -210,6 +211,10 @@ export class AgentRunner {
   private readonly independentRecheckOn: boolean;
   /** 交作业闸只喊一次 */
   private shipNudged = 0;
+  /* P8：最后一次「验收跑绿」的版本与时刻 —— 收工时判定最终产物到底验没验过 */
+  private lastGreenAt = "";
+  private lastGreenSha = "";
+  private greenCount = 0;
   /* 续跑广播只喊一次（历史遗留：用了但没声明，靠 JS 宽容没炸） */
   private resumeAnnounced = false;
   /* 换手播报（M12-P2）：节流表 + 单轮计数，别把邮箱刷爆 */
@@ -1387,6 +1392,23 @@ export class AgentRunner {
   private boardT0 = 0;
   private boardKickoff = false;
   private boardFallback = false;
+  /* P9-a：闸降级放开只广播一次 */
+  private talkGateLifted = false;
+  /** 至少有人广播过（判定与 tools 的协商闸同一口径）。 */
+  private hasAnyBroadcast(roster: string[]): boolean {
+    for (const name of roster) {
+      const from = name + "@" + this.swarmId + ".swarm";
+      for (const other of roster) {
+        if (other === name) continue;
+        const heard = this.store
+          .listMailboxMails(other + "@" + this.swarmId + ".swarm", "inbox", 0)
+          .some((mail) => mail.from === from);
+        if (heard) return true;
+      }
+    }
+    return false;
+  }
+
   private async negotiationGate(roster: string[]): Promise<void> {
     if (!SWARM_NEGOTIATE_BOARD || this.boardFallback) return;
     if (this.boardT0 === 0) this.boardT0 = Date.now();
@@ -1422,6 +1444,26 @@ export class AgentRunner {
       );
       return;
     }
+    /* P9-a：闸降级的那一刻必须**系统广播**。实测 p2482-p8：agent 07:56:31 撞了一次闸
+       被拦后就再也不试了，而闸在 07:57:51 才放开 —— 没人回来试，降级等于没发生。 */
+    if (
+      Date.now() - this.boardT0 >= boardMs * SWARM_TALK_DOWNGRADE_FRACTION &&
+      !this.talkGateLifted &&
+      this.hasAnyBroadcast(roster)
+    ) {
+      this.talkGateLifted = true;
+      this.mailTeam(
+        "【可以挂片了】协商闸已放开",
+        "协商窗口过半 + 已经有人广播过，闸现在放开了：publish_slice 立刻就能过。"
+          + "刚才被拦的人别再等 —— 板还是空的，谁来挂第一片？",
+        "claim",
+      );
+      this.appendSystemTrace(
+        "system",
+        "协商立板：闸降级放开（窗口过半 + 已有人广播），已广播通知全队重新尝试挂片",
+      );
+    }
+    if (this.boardFallback) return;
     if (!boardDeadlineReached(Date.now() - this.boardT0, budget, SWARM_BOARD_DEADLINE_FRACTION)) return;
     this.boardFallback = true;
     const { genericSlices } = await import("../slicer.ts");
@@ -1433,6 +1475,13 @@ export class AgentRunner {
 
   private wallMarks = new Set<number>();
   private wallClockSweep(): void {
+    /* P9-b：立板也由墙钟推进。实测 negotiationGate 只在特定工具路径被调，
+       于是 5 分钟的保底拖到 6 分 40 秒才落地（p2482-p8）。 */
+    {
+      const sw = this.store.getSwarm(this.swarmId);
+      const roster = (sw ? sw.agents : []).filter((name) => name !== "system");
+      if (roster.length > 0) void this.negotiationGate(roster);
+    }
     if (!SWARM_WALL_BROADCAST) return;
     const budget = SWARM_RUN_MAX_MS;
     if (!budget || budget <= 0) return;
@@ -1632,13 +1681,20 @@ export class AgentRunner {
         .slice(0, 5)
         .map((file) => file.path + "(" + (file.lastAgent || "?") + " " + (file.lastCommit || "?") + ")")
         .join("、");
+      const verdict = verifiedVerdict(sha, this.lastGreenSha, this.lastGreenAt);
+      const check = runWorkspaceChecks(this.swarmId);
+      const checkLine = check.note
+        ? "系统体检：" + (check.ok ? "✅ 通过" : "❌ 没过") + "｜" + check.note.slice(0, 220)
+        : "系统体检：工作区里没有 test_/verify_/check_ 开头的可跑验收脚本，机器没法替你判。";
       this.appendSystemTrace("system", "最终快照：" + sha + "（工作区最终版本；文件 " + String(files.length) + " 个：" + tail + "）");
+      this.appendSystemTrace("system", "最终体检：" + verdict + "｜" + checkLine + "｜本轮共看到 " + String(this.greenCount) + " 次验收跑绿");
       this.mailTeam(
         "【本轮结束】工作区最终版本 " + sha,
         "本轮结束时工作区的最终 git 版本是 " + sha + "。" + "\n" + "\n" +
           "注意：**交付之后被改动过的产物，以这个版本为准**（交付那一刻的证据可能已经过期）。" + "\n" +
           "下一轮接着干：git show " + sha + ":路径 取任意文件；git diff " + sha + " HEAD -- 路径 看后来改了什么。" + "\n" +
           "文件清单：" + tail,
+          "\n\n" + "【验没验过】" + verdict + "\n" + checkLine,
         "verify",
       );
     } catch (error) {
@@ -1720,6 +1776,11 @@ export class AgentRunner {
    * 每个 agent 一轮最多点一次（默认上限 4 = 全员各一次），免得变成噪音。
    */
   private nudgeGreenDelivery(agent: string, tool: string, result: ToolResult): void {
+    if (looksLikeGreenCheck(tool, result.detail)) {
+      this.lastGreenAt = clock();
+      this.lastGreenSha = headSha(this.swarmId);
+      this.greenCount += 1;
+    }
     try {
       if (SWARM_DELIVER_NUDGE_CAP <= 0) return;
       if (this.greenNudged.size >= SWARM_DELIVER_NUDGE_CAP) return;

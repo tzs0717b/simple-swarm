@@ -115,10 +115,42 @@ export function autoShipEvidence(input: AutoShipInput): string {
 }
 
 /** 刚跑绿的验收（P5）：bash + 退出码 0 + 命令看着像验收 -> 现在就是交付的时机。 */
+/** 光看不跑的段（列目录、打印文件、看 git 历史）永远不算验收。 */
+const LOOK_ONLY = /^(ls|cat|echo|cd|pwd|head|tail|wc|find|grep|sed|awk|file|stat|tree|true|printf|which|env|date|whoami|git show|git log|git status|git diff --stat|export|set)( |$)/;
+/** 真的把东西跑起来的段。 */
+const RUN_LIKE = /g[+][+]|gcc|clang|python|pytest|node|make|cargo|go run|cmp|diff|check|verify|[.]sh|对拍|样例|复检|验收|assert/i;
+
+/**
+ * 「验收跑绿」判定（P8 收紧）。
+ * 2026-09-19 实测：上一版只看 detail 里有没有 test/check 字样，于是
+ *   $ ls -la && echo "---" && cat test_script.py 2>/dev/null | head   → 退出码 0
+ * 被误判成「验收跑绿」，系统还去点名催交付 —— 假信号污染了交付时机提示。
+ * 现在按 **命令段** 判：必须有一段真的把东西跑起来（编译/执行/对拍/diff），
+ * 纯 ls/cat/echo/git show 不算。注意 git show 是取版本，不是验收。
+ */
 export function looksLikeGreenCheck(tool: string, detail: string): boolean {
   if (tool !== "bash") return false;
   if (!/退出码 0/.test(detail)) return false;
-  return /verify|test|check|对拍|样例|assert|diff|复检|验收/i.test(detail);
+  const m = /[$>] *([^→]*)→ *退出码 *0/.exec(detail);
+  const cmd = m ? m[1] : detail;
+  return cmd.split(/&&|;|[|][|]/).some((seg) => {
+    const one = seg.trim();
+    if (one.length === 0) return false;
+    if (LOOK_ONLY.test(one)) return false;
+    if (one.startsWith("./")) return true;
+    return RUN_LIKE.test(one);
+  });
+}
+
+/**
+ * 最终体检结论（P8）：把「最后一次验收跑绿的版本」和「最终版本」摆在一起。
+ * 实测 p2482-p4：交付发生在 90%，之后 agent 还在改主产物，最后一次改动甚至落在
+ * 墙钟结束之后 —— 于是「证据看着是真的、产物却是坏的」。这里把它明说出来。
+ */
+export function verifiedVerdict(finalSha: string, greenSha: string, greenAt: string): string {
+  if (!greenSha) return "本轮系统从没见过一次「验收跑绿」—— 最终版本 " + finalSha + " 是未经验收的。";
+  if (greenSha === finalSha) return "最终版本 " + finalSha + " 就是最后一次验收跑绿的版本（" + greenAt + "）。";
+  return "最终版本 " + finalSha + " 在最后一次验收（" + greenAt + "，版本 " + greenSha + "）之后又被改动过 —— 现在这个产物是未经验收的。";
 }
 
 /**

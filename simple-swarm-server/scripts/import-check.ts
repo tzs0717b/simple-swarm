@@ -32,6 +32,34 @@ function codeOnly(src: string): string {
 
 const NAMES = /\b(SWARM_[A-Z_0-9]+|talkFirstPending|boardHintText|negotiateKickoffText|boardDeadlineReached|boardTimeoutText|genericSlices)\b/g;
 const SELF = "scripts/import-check.ts";
+/* 转义坑永久护栏（2026-09-19 一天踩了 4 次）：模板->Python->TS 的链路会把
+   "\n" 咬成真换行、把写好的 NL 变量名留进代码。tsc 能抓到，但它混在一堆历史错误里
+   容易漏看，所以在这里单独报。 */
+function escapeHazardScan(): void {
+  /* 只在 src 里查：scripts 里有用得正当的 NL 辅助变量（lint-claimedby.ts）。 */
+  const bad: string[] = [];
+  for (const dir of ["src", "src/agent"]) {
+    for (const rel of tsFiles(dir)) {
+      if (!rel.endsWith(".ts")) continue;
+      const text = readFileSync(rel, "utf8");
+      text.split("\n").forEach((line, i) => {
+        const nlUse =
+          (/[+] *NL|[^A-Za-z0-9_]NL *[+]/.test(line) && !/const NL/.test(line) && !/fromCharCode/.test(line));
+        if (nlUse || /chr[(]/.test(line)) {
+          bad.push(rel + ":" + String(i + 1) + " " + line.trim().slice(0, 70));
+        }
+      });
+    }
+  }
+  if (bad.length > 0) {
+    console.log("❌ 发现转义坑残留（模板->Python->TS 链路咬坏了）：");
+    for (const one of bad.slice(0, 6)) console.log("   " + one);
+    process.exit(1);
+  }
+  console.log("✅ 转义坑扫描通过（src 里没有裸 NL / chr 残留）");
+}
+
+escapeHazardScan();
 const files = tsFiles("src").concat(tsFiles("src/agent"), tsFiles("scripts"));
 const problems: string[] = [];
 
