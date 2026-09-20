@@ -46,6 +46,18 @@ function fingerprints(cases: string[]): string[] {
   return [...found];
 }
 
+/* P19：白名单比黑名单靠谱。
+ * 实测（calc2-r6）：集群写的复盘里「函数参数里要用 self._expr() 而不是 self.expr()」这种
+ * 就是**解法本身** —— 黑名单（代码行 / 题面字面量）没拦住它，因为它既不像代码行、也不含用例字面量。
+ * 所以改成：只让**过程 / 协作 / 工具**主题的句子过（含下面这些词之一），其余一律丢。
+ * 代价是具体技术细节进不来 —— 但那正是会泄题的部分，本来就不该进。 */
+const PROCESS_WORDS = [
+  "验收", "验证", "自检", "量", "跑一遍", "跑一次", "重跑", "退步", "警报", "回滚", "恢复", "回归",
+  "改", "提交", "commit", "git", "覆盖", "write", "edit", "read", "备份", "回退", "小步",
+  "认领", "片", "板", "分工", "协作", "沟通", "邮件", "广播", "同步", "交付", "收尾", "交作业",
+  "对齐", "拆", "并行", "冲突", "抢", "等待", "超时", "挂", "经验", "工具", "教训", "复盘",
+];
+
 const CODE_LIKE = /(^|\s)(def |import |return |class |lambda |==|!=|\*\*|\/\/|<=|>=)/;
 
 /** 消毒：只认「过程 / 协作 / 工具」经验；代码行和题面指纹一律丢掉。 */
@@ -58,6 +70,7 @@ export function sanitizeExperience(text: string, cases: string[]): { kept: strin
     if (line.length === 0 || line.startsWith("#")) continue;
     if (line.length > 220) { dropped += 1; continue; }
     if (CODE_LIKE.test(line)) { dropped += 1; continue; }
+    if (!PROCESS_WORDS.some((word) => line.includes(word))) { dropped += 1; continue; }
     if (prints.some((piece) => line.includes(piece))) { dropped += 1; continue; }
     kept.push(line);
     if (kept.length >= 14) break;
@@ -72,27 +85,37 @@ export function absorbExperience(input: {
   swarmId: string;
   cases: string[];
 }): { kept: number; dropped: number; file: string; source: string } {
-  const swarmFile = path.join(input.workspace, "EXPERIENCE.md");
-  const draftFile = path.join(input.workspace, "EXPERIENCE_DRAFT.md");
   const file = skillFilePath(input.goal);
-  /* 集群没写就收系统草稿（草稿按机器记录写的、可能不准 —— 但总比什么都留不下强）。 */
-  const pick = existsSync(swarmFile)
-    ? [swarmFile, "集群手写"]
-    : (existsSync(draftFile) ? [draftFile, "系统草稿"] : []);
-  if (pick.length === 0) return { kept: 0, dropped: 0, file, source: "" };
-  const source = pick[0];
-  const sourceTag = pick[1];
-  let text = "";
-  try {
-    text = readFileSync(source, "utf8");
-  } catch {
-    return { kept: 0, dropped: 0, file, source: sourceTag };
+  /* 两份都要：集群手写的（白名单过得少但最真）+ 系统草稿（保证至少有过程经验）。
+   * 实测 calc2-r6：集群手写的那份里「函数参数要用 self._expr()」就是解法 —— 白名单把它丢了，
+   * 但那份里能过的也就剩沟通那一条；草稿那五条才是稳定有营养的部分。各标来源，不混。 */
+  const wanted: Array<[string, string]> = [
+    [path.join(input.workspace, "EXPERIENCE.md"), "集群手写"],
+    [path.join(input.workspace, "EXPERIENCE_DRAFT.md"), "系统草稿"],
+  ];
+  const parts: string[] = [];
+  const tags: string[] = [];
+  let keptTotal = 0;
+  let dropped = 0;
+  for (const [source, tag] of wanted) {
+    if (!existsSync(source)) continue;
+    let text = "";
+    try {
+      text = readFileSync(source, "utf8");
+    } catch {
+      continue;
+    }
+    const one = sanitizeExperience(text, input.cases);
+    dropped += one.dropped;
+    if (one.kept.length === 0) continue;
+    keptTotal += one.kept.length;
+    parts.push("## " + input.swarmId + "（" + tag + "）\n" + one.kept.map((line) => "- " + line).join("\n"));
+    tags.push(tag);
   }
-  const { kept, dropped } = sanitizeExperience(text, input.cases);
-  if (kept.length === 0) return { kept: 0, dropped, file, source: sourceTag };
+  if (parts.length === 0) return { kept: 0, dropped, file, source: "" };
   mkdirSync(path.dirname(file), { recursive: true });
   const header = existsSync(file) ? "" : "# 跨代经验（集群自己写、机器只做消毒；这是「上一代的说法」，不是事实）\n";
-  appendFileSync(file, header + "\n## " + input.swarmId + "（" + sourceTag + "）\n" + kept.map((line) => "- " + line).join("\n") + "\n", "utf8");
-  return { kept: kept.length, dropped, file, source: sourceTag };
+  appendFileSync(file, header + "\n" + parts.join("\n") + "\n", "utf8");
+  return { kept: keptTotal, dropped, file, source: tags.join("+") };
 }
 
