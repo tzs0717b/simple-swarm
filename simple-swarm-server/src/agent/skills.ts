@@ -71,21 +71,28 @@ export function absorbExperience(input: {
   workspace: string;
   swarmId: string;
   cases: string[];
-}): { kept: number; dropped: number; file: string } {
-  const source = path.join(input.workspace, "EXPERIENCE.md");
+}): { kept: number; dropped: number; file: string; source: string } {
+  const swarmFile = path.join(input.workspace, "EXPERIENCE.md");
+  const draftFile = path.join(input.workspace, "EXPERIENCE_DRAFT.md");
   const file = skillFilePath(input.goal);
-  if (!existsSync(source)) return { kept: 0, dropped: 0, file };
+  /* 集群没写就收系统草稿（草稿按机器记录写的、可能不准 —— 但总比什么都留不下强）。 */
+  const pick = existsSync(swarmFile)
+    ? [swarmFile, "集群手写"]
+    : (existsSync(draftFile) ? [draftFile, "系统草稿"] : []);
+  if (pick.length === 0) return { kept: 0, dropped: 0, file, source: "" };
+  const source = pick[0];
+  const sourceTag = pick[1];
   let text = "";
   try {
     text = readFileSync(source, "utf8");
   } catch {
-    return { kept: 0, dropped: 0, file };
+    return { kept: 0, dropped: 0, file, source: sourceTag };
   }
   const { kept, dropped } = sanitizeExperience(text, input.cases);
-  if (kept.length === 0) return { kept: 0, dropped, file };
+  if (kept.length === 0) return { kept: 0, dropped, file, source: sourceTag };
   mkdirSync(path.dirname(file), { recursive: true });
   const header = existsSync(file) ? "" : "# 跨代经验（集群自己写、机器只做消毒；这是「上一代的说法」，不是事实）\n";
-  appendFileSync(file, header + "\n## " + input.swarmId + "\n" + kept.map((line) => "- " + line).join("\n") + "\n", "utf8");
-  return { kept: kept.length, dropped, file };
+  appendFileSync(file, header + "\n## " + input.swarmId + "（" + sourceTag + "）\n" + kept.map((line) => "- " + line).join("\n") + "\n", "utf8");
+  return { kept: kept.length, dropped, file, source: sourceTag };
 }
 

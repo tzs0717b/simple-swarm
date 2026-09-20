@@ -16,7 +16,7 @@
  * 系统不判对错，验收靠社会机制：提示词要求「必须由另一个 agent 确认」，
  * 收工时在 confirm 里写清为什么判定 OK。
  */
-import { readdirSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import {
   LLM_FAILOVER_AFTER,
   LLM_FALLBACK_MODELS,
@@ -1928,6 +1928,19 @@ export class AgentRunner {
         "- 每条都要能对上上面这些机器证据；没有证据的猜想别写。",
       ];
       writeFileSync(workspace + "/" + "EXPERIENCE_RAW.md", lines.join("\n") + "\n", "utf8");
+      /* P18：顺手给一份草稿 —— 收口时活多半已经干完，没人有动力从零写；改成「改一改」成本就低多了。 */
+      const draft = [
+        "# 本轮的经验草稿（系统按机器记录写的，可能有错 —— 请改对、删掉不对的，另存成 EXPERIENCE.md）",
+        "",
+        "- 主产物每改一处就量一次题面验收（check_acceptance），别凭感觉宣布通过。",
+        "- write 是整份覆盖：改一处用 edit；真要整份重写，先 read 再写。",
+        "- 本轮退步警报响过 " + String(this.regressWarned.size) + " 次（有版本比上一版差）。改完先量一眼最便宜。",
+        "- 收尾前最后一次改动必须晚于最后一次验收，否则交出去的证据是过期的。",
+        "- 板子上要有一片专门做机械验收，别让每个人各写一套。",
+      ];
+      if (!existsSync(workspace + "/EXPERIENCE_DRAFT.md")) {
+        writeFileSync(workspace + "/EXPERIENCE_DRAFT.md", draft.join("\n") + "\n", "utf8");
+      }
       this.mailTeam(
         "【留给下一代】把本轮的坑写进 EXPERIENCE.md",
         "系统已经把本轮的机器证据落到工作区 EXPERIENCE_RAW.md（分数、退步警报、挂死、最终版本）。\n"
