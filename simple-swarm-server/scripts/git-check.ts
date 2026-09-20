@@ -22,7 +22,7 @@ import {
 import { WORKSPACE_ROOT } from "../src/config.ts";
 import { EventStore } from "../src/eventstore.ts";
 import { autoShipEvidence, detectHandoffs, fileVersionLines, handoffMailText } from "../src/agent/versions.ts";
-import { acceptanceLooksFailed, deliverReadyLine, hangNotice, looksLikeGreenCheck, looksLikeHang, parseAcceptanceCases, parseTaskEntry, parseTaskSample, sampleMatches, verifiedVerdict } from "../src/agent/versions.ts";
+import { acceptScore, acceptanceLooksFailed, deliverReadyLine, hangNotice, looksLikeGreenCheck, looksLikeHang, parseAcceptanceCases, parseTaskEntry, parseTaskSample, sampleMatches, verifiedVerdict } from "../src/agent/versions.ts";
 import { NO_TOOL_STREAK_LIMIT, idleNudgeBody } from "../src/agent/versions.ts";
 
 let pass = 0;
@@ -276,6 +276,12 @@ ok(cas.length === 2, "P12 用例：只抽 assert / must_raise（实得 " + Strin
 ok(cas[0].indexOf("assert evaluate") === 0, "P12 用例：第一条是 1+1");
 ok(parseTaskEntry("没有入口") === null, "P12 入口：没有【入口】-> null");
 ok(parseAcceptanceCases("这里一条用例都没有").length === 0, "P12 用例：没有 -> 空");
+
+/* ---- P13 分数：退步警报靠它 ---- */
+ok(acceptScore("题面验收：23/24 通过（首条失败 …）") === 23, "P13 分数：23/24 -> 23");
+ok(acceptScore("题面验收：0/24 通过") === 0, "P13 分数：0/24 -> 0");
+ok(acceptScore("题面验收：24/24 全绿 ") === 24, "P13 分数：全绿 -> 24");
+ok(acceptScore("题面验收：跑不起来（calc.py 还没有）") === null, "P13 分数：跑不起来 -> null");
 
 console.log("（" + String(pass) + " 通过 / " + String(fail) + " 失败）");
 process.exit(fail === 0 ? 0 : 1);

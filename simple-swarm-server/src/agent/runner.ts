@@ -72,7 +72,7 @@ import {
 import { workspaceOf } from "./workspace.ts";
 import { commitStep, headSha } from "./gitworkspace.ts";
 import { goalDeliverable } from "../slicer.ts";
-import { NO_TOOL_STREAK_LIMIT, autoShipEvidence, detectHandoffs, handoffMailText, idleNudgeBody, looksLikeGreenCheck, type Handoff , verifiedVerdict , looksLikeHang, hangNotice , parseTaskSample , parseAcceptanceCases, parseTaskEntry } from "./versions.ts";
+import { NO_TOOL_STREAK_LIMIT, autoShipEvidence, detectHandoffs, handoffMailText, idleNudgeBody, looksLikeGreenCheck, type Handoff , verifiedVerdict , looksLikeHang, hangNotice , parseTaskSample , parseAcceptanceCases, parseTaskEntry , acceptScore } from "./versions.ts";
 import { toolChallenge, toolRespondChallenge, toolRuleChallenge } from "./tools.ts";
 
 export interface RunnerOptions {
@@ -222,6 +222,9 @@ export class AgentRunner {
   private readonly hangMailed = new Map<string, number>();
   /* P10-c：某个版本已经因为「验收后又改动」被警告过 */
   private readonly postGreenWarned = new Set<string>();
+  /* P13：题面验收的分数（上一次判到的通过条数）与「已经报过退步」的版本 */
+  private lastAcceptScore: number | null = null;
+  private readonly regressWarned = new Set<string>();
   private greenCount = 0;
   /* 续跑广播只喊一次（历史遗留：用了但没声明，靠 JS 宽容没炸） */
   private resumeAnnounced = false;
@@ -557,14 +560,20 @@ export class AgentRunner {
               "verify",
             );
             this.appendSystemTrace("system", "挂死提醒：已广播全队（" + notice + "）");
-            const sampleNow = this.sampleReport();
-            if (!sampleNow.ok) {
+          }
+          /* P13-a：题面验收**无条件**跑。上一轮把它塞在「挂死」分支里，而 calc-r1 挂死 0 次 ——
+             结果整整一轮分数一次都没播出来：有人做到 23/24，别人把它砸成 0/24 连砸 7 次、8 分钟没人知道。 */
+          {
+            const acceptNow = this.sampleReport();
+            const scoreNow = acceptScore(acceptNow.note);
+            if (scoreNow !== null) this.lastAcceptScore = scoreNow;
+            if (!acceptNow.ok) {
               this.mailTeam(
-                "【题面样例没过】机器自己跑的结果在下面",
-                sampleNow.note + "\n" + "这是系统拿**题面自带的标准答案**跑的（不是谁的验收脚本）—— 交之前想办法让它对上。" + "\n",
+                "【题面验收没过】机器自己跑的结果在下面",
+                acceptNow.note + "\n" + "这是系统拿**题面自带的标准答案**跑的（不是谁的验收脚本）—— 交之前想办法让它对上。" + "\n",
                 "verify",
               );
-              this.appendSystemTrace("system", "题面样例红灯：" + sampleNow.note);
+              this.appendSystemTrace("system", "题面验收红灯：" + acceptNow.note);
             }
           }
         } else if (this.shipNudged === 1 && elapsedMs >= SWARM_RUN_MAX_MS * SWARM_SHIP_FINAL_FRACTION) {
@@ -1999,6 +2008,38 @@ export class AgentRunner {
             "system",
             "证据作废警示：" + agent + " 在验收（" + this.lastGreenAt + "，" + this.lastGreenSha + "）之后改了 " + mainName + "（" + commit.commit + "），已广播全队",
           );
+        }
+      }
+      /* P13-b：产物每次被改动，系统就重跑一次题面验收；分数往下掉了立刻全队广播。
+         calc-r1 实测：louise 做到 23/24，别人「改 1 处」砸成 0/24，连砸 7 次、8 分钟没人知道。 */
+      {
+        const mainNow = goalDeliverable(this.store.getSwarm(this.swarmId)?.goal ?? "");
+        const touchedNow = mainNow.length > 0 && commit.changed.some((change) => change.path.endsWith(mainNow));
+        if (touchedNow) {
+          const nowReport = this.sampleReport();
+          const nowScore = acceptScore(nowReport.note);
+          if (nowScore !== null) {
+            if (
+              this.lastAcceptScore !== null &&
+              nowScore < this.lastAcceptScore &&
+              this.regressWarned.size < 3 &&
+              !this.regressWarned.has(commit.commit)
+            ) {
+              this.regressWarned.add(commit.commit);
+              this.mailTeam(
+                "【退步警报】题面验收的分数掉了",
+                "刚才 " + agent + " 改了 " + mainNow + "：题面验收从 " + String(this.lastAcceptScore) + " 掉到 " + String(nowScore) + " 条用例通过（版本 " + commit.commit + "）。" + "\n\n"
+                  + nowReport.note + "\n\n"
+                  + "这不是「还没做完」—— 这是把已经过了的用例改坏了。先把分数拿回来再往下走。",
+                "verify",
+              );
+              this.appendSystemTrace(
+                "system",
+                "退步警报：" + agent + " 把题面验收从 " + String(this.lastAcceptScore) + " 砸到 " + String(nowScore) + "（版本 " + commit.commit + "）",
+              );
+            }
+            this.lastAcceptScore = nowScore;
+          }
         }
       }
       /* 换手播报：这一版动了别人的文件。系统不做裁判，只负责把「你那版被顶掉了、怎么拿回来」说出口 */

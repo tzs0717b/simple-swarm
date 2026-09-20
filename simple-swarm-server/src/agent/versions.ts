@@ -229,6 +229,13 @@ export function parseAcceptanceCases(goal: string): string[] {
   return out;
 }
 
+/** 从判分器的说明里抽出「通过条数」（P13）：认不出返回 null，不假装知道。 */
+export function acceptScore(note: string): number | null {
+  const m = /题面验收：([0-9]+)[/]([0-9]+)/.exec(note);
+  if (m === null) return null;
+  return Number(m[1]);
+}
+
 /**
  * 最终体检结论（P8）：把「最后一次验收跑绿的版本」和「最终版本」摆在一起。
  * 实测 p2482-p4：交付发生在 90%，之后 agent 还在改主产物，最后一次改动甚至落在
