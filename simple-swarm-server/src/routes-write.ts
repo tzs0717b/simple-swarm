@@ -31,7 +31,8 @@ import type {
 
 
 const createSwarmSchema = z.object({
-  goal: z.string().min(1).max(8000),
+  /* P21: 8000 太紧 —— QuixBugs 那类题面自带 16 个函数的源码 + 126 条用例，34960 字符，直接 400 拒收。 */
+  goal: z.string().min(1).max(200000),
   name: z.string().min(1).max(80).optional(),
   /* 默认必须是**真网关认得的**模型名。以前这里是 "mock-llm"（mock 时代占位符），
      接真模型后界面建的集群会原样发过去 → 404 → 每个 agent 第一步就死。 */
