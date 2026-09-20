@@ -223,7 +223,11 @@ export class AgentRunner {
   /* P10-c：某个版本已经因为「验收后又改动」被警告过 */
   private readonly postGreenWarned = new Set<string>();
   /* P13：题面验收的分数（上一次判到的通过条数）与「已经报过退步」的版本 */
-  private lastAcceptScore: number | null = null;
+  /* P14：跑不起来（import 都过不去）也算一次退步，而且比任何分数都严重。 */
+  private acceptRankSeen = false;
+  private acceptRank = 0;
+  private acceptBestSha = "";
+  private acceptBestRank = -1;
   private readonly regressWarned = new Set<string>();
   private greenCount = 0;
   /* 续跑广播只喊一次（历史遗留：用了但没声明，靠 JS 宽容没炸） */
@@ -566,7 +570,10 @@ export class AgentRunner {
           {
             const acceptNow = this.sampleReport();
             const scoreNow = acceptScore(acceptNow.note);
-            if (scoreNow !== null) this.lastAcceptScore = scoreNow;
+            this.appendSystemTrace(
+              "system",
+              "交作业闸（50%）题面验收：" + (acceptNow.ok ? "达标" : scoreNow === null ? "跑不起来" : String(scoreNow) + " 分"),
+            );
             if (!acceptNow.ok) {
               this.mailTeam(
                 "【题面验收没过】机器自己跑的结果在下面",
@@ -2040,27 +2047,46 @@ export class AgentRunner {
         if (touchedNow) {
           const nowReport = this.sampleReport();
           const nowScore = acceptScore(nowReport.note);
-          if (nowScore !== null) {
-            if (
-              this.lastAcceptScore !== null &&
-              nowScore < this.lastAcceptScore &&
-              this.regressWarned.size < 3 &&
-              !this.regressWarned.has(commit.commit)
-            ) {
-              this.regressWarned.add(commit.commit);
-              this.mailTeam(
-                "【退步警报】题面验收的分数掉了",
-                "刚才 " + agent + " 改了 " + mainNow + "：题面验收从 " + String(this.lastAcceptScore) + " 掉到 " + String(nowScore) + " 条用例通过（版本 " + commit.commit + "）。" + "\n\n"
-                  + nowReport.note + "\n\n"
-                  + "这不是「还没做完」—— 这是把已经过了的用例改坏了。先把分数拿回来再往下走。",
-                "verify",
-              );
-              this.appendSystemTrace(
-                "system",
-                "退步警报：" + agent + " 把题面验收从 " + String(this.lastAcceptScore) + " 砸到 " + String(nowScore) + "（版本 " + commit.commit + "）",
-              );
-            }
-            this.lastAcceptScore = nowScore;
+          /* P14-a：跑不起来（语法错 / import 失败）不是「没量到」，是最惨的一种退步。
+             以前 acceptScore 对这种情况给 null，比较直接跳过 —— calc2-r1 实测：43/59 的产物被
+             olivia 一个字符改坏（: 打成 ;），最后 24 秒的这次退步一条警报都没发，收尾就是语法错。 */
+          const nowRank = nowScore === null ? -1 : nowScore;
+          const nowText = nowScore === null ? "跑不起来（连 import 都过不去）" : String(nowScore) + " 分";
+          const prevText = this.acceptRankSeen
+            ? (this.acceptRank < 0 ? "跑不起来" : String(this.acceptRank) + " 分")
+            : "还没量过";
+          if (
+            this.acceptRankSeen &&
+            nowRank < this.acceptRank &&
+            this.regressWarned.size < 3 &&
+            !this.regressWarned.has(commit.commit)
+          ) {
+            this.regressWarned.add(commit.commit);
+            /* P14-b：警报里直接给出「最后一个好版本」和一句能整份拿回来的命令 ——
+               calc2-r1 里 ray 确实从 2 分救回了 40 分，但花了 3.5 分钟；把 sha 和命令摆到眼前能省掉找人问。 */
+            const best = this.acceptBestSha.slice(0, 7);
+            const rescue = best.length > 0
+              ? "最后一个好版本是 " + best + "（" + String(this.acceptBestRank) + " 分）。照抄这句就能整份拿回来：\n"
+                + "  git show " + best + ":" + mainNow + " > " + mainNow + "\n"
+                + "  git commit -am '恢复 " + best + "'\n\n"
+              : "现在还没有量到过能跑起来的版本，先照着题面把最小可跑版本弄出来。\n\n";
+            this.mailTeam(
+              "【退步警报】题面验收的分数掉了",
+              "刚才 " + agent + " 改了 " + mainNow + "：题面验收从 " + prevText + " 掉到 " + nowText + "。\n"
+                + nowReport.note + "\n\n" + rescue
+                + "这不是「还没做完」—— 这是把已经过了的用例改坏了。先把分数拿回来再往下走。",
+              "verify",
+            );
+            this.appendSystemTrace(
+              "system",
+              "退步警报：" + agent + " 把题面验收从 " + prevText + " 砸到 " + nowText + "（版本 " + commit.commit.slice(0, 7) + "）",
+            );
+          }
+          this.acceptRankSeen = true;
+          this.acceptRank = nowRank;
+          if (nowRank >= 0 && nowRank >= this.acceptBestRank) {
+            this.acceptBestRank = nowRank;
+            this.acceptBestSha = commit.commit;
           }
         }
       }
