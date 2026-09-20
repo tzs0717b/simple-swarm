@@ -392,14 +392,35 @@ export function runAcceptanceCases(dir: string, entry: TaskEntry, cases: string[
     "        assert needle in str(e), '错误信息里没有 ' + needle",
     "        return",
     "    raise AssertionError('没有抛 ValueError，返回了 ' + repr(v))",
+    "def group_of(line):",
+    "    i = line.find('evaluate(')",
+    "    if i < 0:",
+    "        return '?'",
+    "    for ch in (chr(39), chr(34)):",
+    "        a = line.find(ch, i + 9)",
+    "        if a < 0:",
+    "            continue",
+    "        b = line.find(ch, a + 1)",
+    "        if b < 0:",
+    "            continue",
+    "        name = line[a + 1:b]",
+    "        if len(name) > 0 and name.replace('_', '').isalnum():",
+    "            return name",
+    "    return '?'",
     "CASES = " + JSON.stringify(cases),
     "ok = 0",
+    "stats = {}",
     "for i, line in enumerate(CASES, 1):",
+    "    g = group_of(line)",
+    "    st = stats.setdefault(g, [0, 0])",
+    "    st[1] += 1",
     "    try:",
     "        exec(line, {'evaluate': m." + entry.fn + ", 'must_raise': must_raise})",
     "        ok += 1",
+    "        st[0] += 1",
     "    except Exception as e:",
     "        print('FAIL #' + str(i) + ': ' + line + ' | ' + str(e)[:70])",
+    "print('GROUPS ' + ' '.join([k + '=' + str(v[0]) + '/' + str(v[1]) for k, v in stats.items()]))",
     "print('RESULT ' + str(ok) + '/' + str(len(CASES)))",
   ];
   try {
@@ -424,17 +445,38 @@ export function runAcceptanceCases(dir: string, entry: TaskEntry, cases: string[
     const tail = out.trim().split("\n").slice(-1)[0] || "";
     return { ok: false, note: "题面验收：跑不起来（" + entry.file + " 还没有，或 import 就失败了）｜" + tail.slice(0, 120) };
   }
+  /* P22：按函数分组报进度 —— 实测 bughunt-r1：126 条用例锁在一个整体判分上，谁都没法让任何一片
+   * 「验绿」，整个集群 15 分钟卡在 0 完工。这里把同一份判分结果按函数拆开报（判分照旧全量跑，
+   * 不拦任何动作），集群就能一个函数一个函数地推进。 */
+  const gLine = out.split(String.fromCharCode(10)).find((line) => line.indexOf("GROUPS ") === 0) ?? "";
+  const groups = gLine.length > 0
+    ? gLine.slice(7).split(" ").filter((item) => item.indexOf("=") > 0).map((item) => {
+        const name = item.split("=")[0];
+        const frac = item.split("=")[1].split("/");
+        return { name, got: Number(frac[0]), all: Number(frac[1]) };
+      })
+    : [];
+  const doneGroups = groups.filter((item) => item.got === item.all).length;
+  const groupNote =
+    groups.length > 1
+      ? "｜按函数（共 " + String(groups.length) + " 个，全绿 " + String(doneGroups) + " 个）："
+        + groups
+            .map((item) => item.name + " " + String(item.got) + "/" + String(item.all) + (item.got === item.all ? "✓" : ""))
+            .slice(0, 12)
+            .join(" ｜ ")
+      : "";
   const passed = Number(m[1]);
   const total = Number(m[2]);
   const fails = out.split("\n").filter((line) => line.indexOf("FAIL #") === 0);
   if (passed === total && total > 0) {
-    return { ok: true, note: "题面验收：" + String(passed) + "/" + String(total) + " 全绿 ✅" };
+    return { ok: true, note: "题面验收：" + String(passed) + "/" + String(total) + " 全绿 ✅" + groupNote };
   }
   return {
     ok: false,
     note:
       "题面验收：" + String(passed) + "/" + String(total) + " 通过"
-      + (fails.length > 0 ? "（首条失败 " + fails[0].slice(0, 90) + "）" : ""),
+      + (fails.length > 0 ? "（首条失败 " + fails[0].slice(0, 90) + "）" : "")
+      + groupNote,
   };
 }
 
