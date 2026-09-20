@@ -9,7 +9,7 @@
  *   2) 不许把上一代的话当事实：注入时明确标注「这是上一代的说法，不是事实」。
  */
 import { createHash } from "node:crypto";
-import { appendFileSync, existsSync, mkdirSync, readFileSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
 /** 经验按「任务族」分文件：同一份题面 → 同一个 key（不同任务的经验不会互相污染）。 */
@@ -79,6 +79,29 @@ export function sanitizeExperience(text: string, cases: string[]): { kept: strin
 }
 
 /** 收下本轮的经验：消毒后追加到任务族的经验文件里。 */
+/** 收尾整理：整行去重 + 只留最近 3 段。
+ *  实测教训：经验每轮追加 2 段、只增不减，10 轮后 prompt 里塞满陈年旧账（重复的还居多）。 */
+function trimSkillFile(file: string): void {
+  const text = readFileSync(file, "utf8");
+  const blocks = text.split(/\n(?=## )/);
+  const head = blocks.length > 0 && !blocks[0].startsWith("## ") ? blocks[0].trim() : "";
+  const sections = blocks.filter((item) => item.startsWith("## "));
+  const seen = new Set<string>();
+  const kept: string[] = [];
+  for (let i = sections.length - 1; i >= 0; i -= 1) {
+    const lines = sections[i].split("\n");
+    const body = lines.slice(1).filter((line) => {
+      const key = line.trim();
+      if (key.length === 0 || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+    if (body.length > 0) kept.unshift(lines[0] + "\n" + body.join("\n") + "\n");
+    if (kept.length >= 3) break;
+  }
+  const headText = head.length > 0 ? head + "\n" : "# 跨代经验（集群自己写、机器只做消毒；这是「上一代的说法」，不是事实）\n";
+  writeFileSync(file, headText + "\n" + kept.join("\n"), "utf8");
+}
 export function absorbExperience(input: {
   goal: string;
   workspace: string;
@@ -116,6 +139,7 @@ export function absorbExperience(input: {
   mkdirSync(path.dirname(file), { recursive: true });
   const header = existsSync(file) ? "" : "# 跨代经验（集群自己写、机器只做消毒；这是「上一代的说法」，不是事实）\n";
   appendFileSync(file, header + "\n" + parts.join("\n") + "\n", "utf8");
+  trimSkillFile(file);
   return { kept: keptTotal, dropped, file, source: tags.join("+") };
 }
 

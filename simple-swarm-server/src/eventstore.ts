@@ -884,8 +884,23 @@ export class EventStore {
 
   /** 看板：某集群某切片的当前状态 */
   sliceByName(swarmId: string, slice: string): SliceInfo | undefined {
-    const info = this.slices.get(swarmId)?.get(slice);
-    return info ? { slice, status: info.status, claimedBy: info.claimedBy, evidence: info.evidence } : undefined;
+    const board = this.slices.get(swarmId);
+    if (!board) return undefined;
+    /* P20: 宽容匹配. 实测 calc2-r8 -- 集群交付时报"切片不存在", 只因为名字里的全角括号被
+     * 模型复述成了别的形状. 顺序: 精确 -> 规范化相等 -> 唯一子串. */
+    const norm = (text: string): string => text.replace(/[ ()（）【】\[\]，,。、：:*·-]/g, "").toLowerCase();
+    const want = norm(slice);
+    let hit = "";
+    const partial: string[] = [];
+    for (const name of board.keys()) {
+      const have = norm(name);
+      if (name === slice || have === want) { hit = name; break; }
+      if (have.includes(want) || want.includes(have)) partial.push(name);
+    }
+    if (hit.length === 0 && partial.length === 1) hit = partial[0];
+    if (hit.length === 0) return undefined;
+    const info = board.get(hit);
+    return info ? { slice: hit, status: info.status, claimedBy: info.claimedBy, evidence: info.evidence } : undefined;
   }
 
   /** 看板：某切片交付时留下的证据（没交付过就是空串）。收工汇报会引用它 */

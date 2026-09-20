@@ -526,7 +526,18 @@ export function runWorkspaceChecks(swarmId: string): { ok: boolean; note: string
 export function toolCompleteSlice(ctx: ToolContext, slice: string, evidence = ""): ToolResult {
   const info = ctx.store.sliceByName(ctx.swarmId, slice);
   if (!info) {
-    return { observation: "切片不存在：" + slice, detail: "交付失败：" + slice, refused: true };
+    /* P20: 片名对不上是集群反复踩的坑 (实测 calc2-r8). 报错时把看板上的片名原样列出来,
+     * 让模型照抄而不是凭记忆复述. */
+    const names = ctx.store.listSlices(ctx.swarmId).map((item) => item.slice);
+    const hint =
+      names.length > 0
+        ? "看板上的片名（照抄，别改字符）：" + names.slice(0, 8).join(" ｜ ")
+        : "（看板是空的）";
+    return {
+      observation: "切片不存在：" + slice + "。" + hint,
+      detail: "交付失败：" + slice + "（片名对不上看板）",
+      refused: true,
+    };
   }
   if (info.status === "available") {
     return {
