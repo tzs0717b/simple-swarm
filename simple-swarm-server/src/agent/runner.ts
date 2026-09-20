@@ -613,6 +613,8 @@ export class AgentRunner {
         } else if (this.shipNudged === 2 && elapsedMs >= SWARM_RUN_MAX_MS * SWARM_AUTOSHIP_FRACTION) {
           /* 收口兜底（B3）：两次喊话之后还没人交付 -> 系统按现状入账，别让整轮的活白干 */
           this.shipNudged = 3;
+          /* P15：入账之前先把最好版本和恢复命令摆到全队眼前（赶在最后一次改动之前）。 */
+          this.broadcastBestVersion();
           this.autoShipBoard();
         }
       }
@@ -1883,6 +1885,29 @@ export class AgentRunner {
       return { ok: false, note: "题面样例：跑不动（" + String(error).slice(0, 80) + "）" };
     }
   }
+
+  /** P15：把「现在最好的版本」+ 恢复命令广播给全队（收口兜底时用，赶在最后一次改动之前）。
+   *  calc2-r1/r2 两轮的产物都是收尾前 24 秒被改坏的：r1 一个字符（: 打成 ;）、r2 从 57 分掉到 44 分。
+   *  r2 那次退步警报虽然带上了恢复命令，但只剩 24 秒、来不及照抄 —— 那就提前摆到眼前。 */
+  private broadcastBestVersion(): void {
+    const deliv = goalDeliverable(this.store.getSwarm(this.swarmId)?.goal ?? "");
+    const report = this.sampleReport();
+    const score = acceptScore(report.note);
+    const best = this.acceptBestSha.slice(0, 7);
+    const bestText = best.length > 0 ? best + "（" + String(this.acceptBestRank) + " 分）" : "还没量到过能跑起来的版本";
+    this.mailTeam(
+      "【收口】本轮最好的版本是 " + bestText,
+      "系统现在按现状入账（墙钟 " + String(Math.round(SWARM_AUTOSHIP_FRACTION * 100)) + "%）。\n"
+        + "现在的主产物是 " + (score === null ? "跑不起来" : String(score) + " 分") + "：" + report.note + "\n\n"
+        + (best.length > 0 && deliv.length > 0
+          ? "收尾前如果又改坏了，照抄这两句整份拿回来：\n  git show " + best + ":" + deliv + " > " + deliv + "\n  git commit -am '恢复 " + best + "'\n\n"
+          : "")
+        + "收尾规则：**最后一次改动必须晚于最后一次验收** —— 改完自己跑一遍题面验收再收工。",
+      "verify",
+    );
+    this.appendSystemTrace("system", "收口广播：本轮最好版本 " + bestText + " | 现状 " + (score === null ? "跑不起来" : String(score) + " 分"));
+  }
+
 
   private nudgeGreenDelivery(agent: string, tool: string, result: ToolResult): void {
     const detail = result.detail ?? "";
