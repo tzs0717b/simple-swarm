@@ -1754,7 +1754,7 @@ export class AgentRunner {
         this.appendSystemTrace(
           "system",
           absorbed.kept > 0
-            ? "跨代经验：收下 " + String(absorbed.kept) + " 条（丢掉 " + String(absorbed.dropped) + " 条泄题/代码行），存进 " + absorbed.file.split("/").pop()
+            ? "跨代经验：收下 " + String(absorbed.kept) + " 条（丢掉 " + String(absorbed.dropped) + " 条泄题/代码行/无关句），分三层存进 " + absorbed.files.map((item) => item.split("/").pop()).join(" + ")
             : "跨代经验：本轮没留下经验（EXPERIENCE.md 没写，或写完被消毒掉 " + String(absorbed.dropped) + " 条）",
         );
       }
