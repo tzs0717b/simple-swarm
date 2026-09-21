@@ -618,7 +618,10 @@ export class AgentRunner {
           this.shipNudged = 3;
           /* P15：入账之前先把最好版本和恢复命令摆到全队眼前（赶在最后一次改动之前）。 */
           this.broadcastBestVersion();
-          if (SWARM_SKILLS) this.openSkillHandoff();
+          if (SWARM_SKILLS && !this.skillHandedOff) {
+            this.skillHandedOff = true;
+            this.openSkillHandoff();
+          }
           this.autoShipBoard();
         }
       }
@@ -626,6 +629,14 @@ export class AgentRunner {
       /* 墙钟闸：墙钟上限由 SWARM_RUN_MAX_MS 决定（实验用过 15/30/45 分钟）。只停这一轮 run，状态机不动。 */
       if (SWARM_RUN_MAX_MS > 0 && Date.now() - runStartMs >= SWARM_RUN_MAX_MS) {
         this.appendSystemTrace("system", "跑到墙钟上限 " + Math.round(SWARM_RUN_MAX_MS / 1000) + " 秒，主动停下复盘（swarm 仍为 live，可继续 /run 续跑）");
+        /* P26：经验交接不能只挂在「收口兜底」那条分支上。实测 bughunt6-r2：这轮跑得比较顺，
+         * shipNudged 没走到 2，openSkillHandoff 一次都没被调用 —— 整轮经验一条没留下（工作区连草稿都没有）。
+         * 交经验是每轮收尾都该做的事，跟「有没有人没交付」无关。 */
+        if (SWARM_SKILLS && !this.skillHandedOff) {
+          this.skillHandedOff = true;
+          this.broadcastBestVersion();
+          this.openSkillHandoff();
+        }
         stoppedBy = "time-limit";
         break outer;
       }
@@ -1911,6 +1922,8 @@ export class AgentRunner {
   /** P17-a：收口时把「本轮的机器证据」落到工作区，并请集群把坑写进 EXPERIENCE.md。
    *  机器证据是系统自己记的（分数、退步警报、挂死、谁验过），不改一个字 —— 集群照着它总结，
    *  等于把「系统经验」升级成「集群自己写的经验」，下一代一开局就能看到。 */
+  private skillHandedOff = false;
+
   private openSkillHandoff(): void {
     try {
       const workspace = workspaceOf(this.swarmId);
