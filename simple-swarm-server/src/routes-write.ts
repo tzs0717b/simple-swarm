@@ -337,8 +337,13 @@ export function registerWriteRoutes(app: FastifyInstance, store: EventStore): vo
         );
         /* 清单不撒谎才怪：声明 1051 个模型，真能服务的只有几十个。开跑前探一遍，死的当场换掉。 */
         let probing: { live: string[]; dead: Record<string, string> } = { live: [], dead: {} };
+        /* P27：探活名单里必须留一个「兜底能用的东西」。实测 2026-09-21：keypool 把头名车道
+         * glm-5.3官api 删了（404），而 LLM_FALLBACK_MODELS 默认是空 —— 探到的唯一模型就是它，
+         * live 变空，整个 run 直接 503「网关一个模型都探不通」，可网关本身好好的。
+         * 把声明模型（默认 auto，网关的路由关键字）也算进探活名单：只要网关活着就不会空手而归。 */
+        const probeList = [...new Set([...effective, ...LLM_FALLBACK_MODELS, process.env.LLM_MODEL ?? "auto"])];
         try {
-          probing = await probeModels([...new Set([...effective, ...LLM_FALLBACK_MODELS])]);
+          probing = await probeModels(probeList);
         } catch (error) {
           /* 探活只是加速手段，它自己坏了不该拦住整个 run（2026-09-17 踩过：少了 import 直接 503） */
           console.log("[探活] 跳过（探活失败）：" + (error instanceof Error ? error.message : String(error)));
@@ -348,7 +353,11 @@ export function registerWriteRoutes(app: FastifyInstance, store: EventStore): vo
         if (deadNames.length > 0) {
           const spare = live.filter((name) => !PLACEHOLDER_MODELS.has(name)).concat(live.filter((name) => PLACEHOLDER_MODELS.has(name)));
           if (spare.length === 0) {
-            return reply.code(503).send({ error: "网关一个模型都探不通（清单和实际不一致）", dead });
+            return reply.code(503).send({
+              error: "网关一个模型都探不通（探了 " + probeList.length + " 个候选全死；清单和实际不一致）",
+              dead,
+              probed: probeList,
+            });
           }
           /* 一个死模型换一个**不同的**活模型：保住"多模型混编"的意义，
              全换成同一个就等于把 6 个模型退化成 1 个（旧集群的老毛病）。 */
